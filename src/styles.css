@@ -1,0 +1,388 @@
+/* ══════════════════════════════════════════════
+   Spicetify Jam — Sidebar Panel
+   ══════════════════════════════════════════════ */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+/* ── Sidebar host element ──────────────────── */
+#jam-sidebar {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 360px;
+    height: calc(100vh - 90px); /* Leave space above the playbar */
+    z-index: 9998;
+    transform: translateX(100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: none;
+}
+#jam-sidebar.jam-sidebar-visible {
+    transform: translateX(0);
+    pointer-events: all;
+}
+
+/* ── Bottom bar button ─────────────────────── */
+.jam-topbar-btn {
+    background: transparent;
+    border: none;
+    color: #b3b3b3;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border-radius: 50%;
+    transition: color 0.2s, background 0.2s;
+    padding: 0;
+}
+.jam-topbar-btn:hover { color: #fff; background: rgba(255,255,255,0.1); }
+.jam-topbar-btn-active { color: #1db954 !important; }
+@keyframes jamPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* ── Root panel ────────────────────────────── */
+.jam-root {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: #121212;
+    color: #fff;
+    border-left: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px 0 0 8px;
+    overflow: hidden;
+    box-shadow: -8px 0 32px rgba(0,0,0,0.6);
+}
+
+/* ── Header ────────────────────────────────── */
+.jam-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 16px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+    flex-shrink: 0;
+    background: #181818;
+}
+.jam-header-left  { display: flex; align-items: center; gap: 10px; }
+.jam-header-right { display: flex; align-items: center; gap: 6px; }
+
+.jam-logo-icon {
+    width: 36px; height: 36px;
+    background: rgba(255,255,255,0.07);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    color: rgba(255,255,255,0.6);
+    flex-shrink: 0;
+}
+.jam-logo-icon.active {
+    background: #1db954;
+    color: #fff;
+    box-shadow: 0 2px 12px rgba(29,185,84,0.45);
+    animation: logo-glow 3s ease-in-out infinite;
+}
+@keyframes logo-glow {
+    0%,100% { box-shadow: 0 2px 12px rgba(29,185,84,0.45); }
+    50%      { box-shadow: 0 2px 24px rgba(29,185,84,0.8); }
+}
+
+.jam-title    { font-size: 16px; font-weight: 800; letter-spacing: -0.2px; }
+.jam-subtitle { font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 1px; }
+
+/* Ping */
+.jam-ping {
+    font-size: 10px; font-weight: 700;
+    padding: 2px 7px; border-radius: 10px;
+    background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.4);
+}
+.jam-ping.measuring { color: rgba(255,255,255,0.2); }
+.jam-ping.good  { background: rgba(29,185,84,0.15); color: #1db954; }
+.jam-ping.bad   { background: rgba(232,68,68,0.15); color: #e84444; }
+
+.jam-icon-btn {
+    width: 30px; height: 30px;
+    border: none; background: rgba(255,255,255,0.06);
+    border-radius: 6px; color: rgba(255,255,255,0.55);
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+}
+.jam-icon-btn:hover             { background: rgba(255,255,255,0.12); color: #fff; }
+.jam-icon-btn.red:hover         { background: rgba(232,68,68,0.15); color: #e84444; }
+.jam-icon-btn.green             { background: rgba(29,185,84,0.12); color: #1db954; }
+
+/* ── Body ──────────────────────────────────── */
+.jam-body {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.jam-body::-webkit-scrollbar        { width: 5px; }
+.jam-body::-webkit-scrollbar-thumb  { background: rgba(255,255,255,0.1); border-radius: 3px; }
+
+/* ── Live badge ────────────────────────────── */
+.jam-live-badge {
+    display: flex; align-items: center; gap: 7px;
+    padding: 9px 12px;
+    background: rgba(29,185,84,0.07);
+    border: 1px solid rgba(29,185,84,0.18);
+    border-radius: 8px;
+    font-size: 12px; font-weight: 600;
+    flex-shrink: 0;
+}
+.jam-live-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: #1db954; flex-shrink: 0;
+    animation: live-blink 1.6s ease-in-out infinite;
+}
+@keyframes live-blink {
+    0%,100% { opacity: 1; } 50% { opacity: 0.3; }
+}
+.jam-badge {
+    margin-left: auto;
+    background: #1db954; color: #000;
+    font-size: 9px; font-weight: 900; letter-spacing: 0.8px;
+    padding: 2px 7px; border-radius: 10px; text-transform: uppercase;
+}
+
+/* ── Now Playing card ──────────────────────── */
+.jam-np-card {
+    background: #181818;
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 12px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+.jam-np-art-wrap {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    overflow: hidden;
+    background: #0d0d0d;
+}
+.jam-np-art { width: 100%; height: 100%; object-fit: cover; display: block; }
+.jam-np-art.placeholder { background: linear-gradient(135deg, #1a1a2e, #0d0d0d); }
+
+.jam-np-meta    { padding: 14px 14px 6px; }
+.jam-np-label   { font-size: 9px; font-weight: 800; color: #1db954; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 5px; }
+.jam-np-title   { font-size: 17px; font-weight: 900; margin: 0 0 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.jam-np-artist  { font-size: 13px; color: rgba(255,255,255,0.5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Progress bar */
+.jam-progress-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 14px 6px;
+}
+.jam-time { font-size: 10px; color: rgba(255,255,255,0.35); font-weight: 600; flex-shrink: 0; }
+.jam-progress-rail {
+    flex: 1; height: 3px; background: rgba(255,255,255,0.1);
+    border-radius: 3px; position: relative;
+    cursor: default;
+    transition: height 0.15s;
+}
+.jam-progress-rail:hover { height: 5px; }
+.jam-progress-fill {
+    position: absolute; left: 0; top: 0; height: 100%;
+    background: #1db954; border-radius: 3px;
+    transition: width 0.25s linear;
+}
+.jam-progress-dot {
+    position: absolute; top: 50%; transform: translate(-50%, -50%);
+    width: 11px; height: 11px; border-radius: 50%;
+    background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+    opacity: 0; transition: opacity 0.15s; pointer-events: none;
+}
+.jam-progress-rail:hover .jam-progress-dot { opacity: 1; }
+
+/* Playback controls */
+.jam-controls {
+    display: flex; align-items: center; justify-content: center;
+    gap: 12px; padding: 8px 14px 16px;
+}
+.jam-ctrl-btn {
+    border: none; background: transparent;
+    color: rgba(255,255,255,0.55); cursor: pointer;
+    width: 40px; height: 40px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+}
+.jam-ctrl-btn:hover { color: #fff; transform: scale(1.08); }
+.jam-ctrl-btn.main {
+    background: #fff; color: #000;
+    width: 52px; height: 52px;
+    box-shadow: 0 3px 16px rgba(255,255,255,0.15);
+}
+.jam-ctrl-btn.main:hover { transform: scale(1.04); box-shadow: 0 4px 20px rgba(255,255,255,0.25); }
+
+/* ── Section cards ─────────────────────────── */
+.jam-section-card {
+    background: #181818;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+.jam-section-title {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 9px; font-weight: 800; letter-spacing: 1.2px;
+    color: rgba(255,255,255,0.3); padding: 11px 14px 8px;
+    text-transform: uppercase;
+}
+
+/* Settings toggle */
+.jam-setting-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 4px 14px 14px; font-size: 13px; font-weight: 600;
+    color: rgba(255,255,255,0.85);
+}
+.jam-toggle {
+    width: 40px; height: 22px;
+    background: rgba(255,255,255,0.1); border: none; border-radius: 11px;
+    cursor: pointer; position: relative; transition: background 0.25s; flex-shrink: 0;
+}
+.jam-toggle.on { background: #1db954; }
+.jam-toggle-knob {
+    position: absolute; top: 3px; left: 3px;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: #fff; transition: transform 0.25s;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+}
+.jam-toggle.on .jam-toggle-knob { transform: translateX(18px); }
+
+/* ── Queue ─────────────────────────────────── */
+.jam-q-row {
+    display: flex; align-items: center; gap: 9px;
+    padding: 7px 12px;
+    border-top: 1px solid rgba(255,255,255,0.04);
+    transition: background 0.15s;
+    cursor: default;
+}
+.jam-q-row:first-of-type { border-top: 0; }
+.jam-q-row:hover { background: rgba(255,255,255,0.04); }
+.jam-q-row.drag-over   { background: rgba(29,185,84,0.08); }
+.jam-q-row.drag-src    { opacity: 0.3; }
+
+.jam-drag-grip  { color: rgba(255,255,255,0.15); cursor: grab; flex-shrink: 0; }
+.jam-q-num      { width: 14px; font-size: 10px; color: rgba(255,255,255,0.2); font-weight: 700; flex-shrink: 0; text-align: right; }
+.jam-q-thumb    { width: 38px; height: 38px; border-radius: 4px; overflow: hidden; flex-shrink: 0; background: #0d0d0d; }
+.jam-q-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.jam-q-thumb-ph { width: 100%; height: 100%; background: linear-gradient(135deg,#1a1a2e,#0d0d0d); }
+.jam-q-meta     { flex: 1; min-width: 0; }
+.jam-q-title    { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.jam-q-artist   { font-size: 11px; color: rgba(255,255,255,0.4); }
+
+.jam-q-btns { display: flex; gap: 3px; opacity: 0; transition: opacity 0.15s; flex-shrink: 0; }
+.jam-q-row:hover .jam-q-btns { opacity: 1; }
+.jam-q-btn {
+    width: 26px; height: 26px; border: none;
+    background: rgba(255,255,255,0.06); border-radius: 5px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    color: rgba(255,255,255,0.5); transition: all 0.15s;
+}
+.jam-q-btn.green:hover { background: rgba(29,185,84,0.2);  color: #1db954; }
+.jam-q-btn.red:hover   { background: rgba(232,68,68,0.2);  color: #e84444; }
+
+/* ── Members ───────────────────────────────── */
+.jam-member-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 14px;
+    border-top: 1px solid rgba(255,255,255,0.04);
+}
+.jam-member-row:first-of-type { border-top: 0; }
+
+.jam-avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 14px; color: #000;
+    overflow: hidden; flex-shrink: 0;
+}
+.jam-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.jam-member-info    { flex: 1; min-width: 0; }
+.jam-member-name    { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.jam-member-role    { font-size: 10px; color: rgba(255,255,255,0.35); margin-top: 1px; }
+
+/* ── Share / Invite ────────────────────────── */
+.jam-id-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 4px 14px 12px; gap: 8px;
+}
+.jam-id-code {
+    font-family: 'Courier New', monospace; font-size: 20px;
+    font-weight: 900; color: #1db954; letter-spacing: 5px;
+}
+.jam-share-row { display: flex; gap: 6px; padding: 0 14px 14px; }
+.flex-1 { flex: 1; }
+
+.jam-qr-box {
+    margin: 0 14px 14px; padding: 14px;
+    background: #fff; border-radius: 10px; text-align: center;
+}
+.jam-qr-box img      { width: 100%; display: block; border-radius: 6px; }
+.jam-qr-label        { font-size: 11px; color: #000; font-weight: 700; margin-top: 8px; }
+
+/* ── Footer ────────────────────────────────── */
+.jam-footer {
+    padding: 12px 14px 14px;
+    border-top: 1px solid rgba(255,255,255,0.07);
+    flex-shrink: 0;
+    background: #181818;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+
+/* ── Buttons ───────────────────────────────── */
+.jam-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 0 16px; height: 40px; border-radius: 20px;
+    font-size: 13px; font-weight: 700; cursor: pointer;
+    border: none; transition: all 0.2s; white-space: nowrap; font-family: inherit;
+}
+.jam-btn.full    { width: 100%; box-sizing: border-box; }
+.jam-btn.green   { background: #1db954; color: #000; }
+.jam-btn.green:hover  { background: #1ed760; }
+.jam-btn.outline { background: transparent; border: 1.5px solid rgba(255,255,255,0.15); color: rgba(255,255,255,0.75); }
+.jam-btn.outline:hover{ border-color: rgba(255,255,255,0.35); color: #fff; background: rgba(255,255,255,0.04); }
+.jam-btn.red     { background: rgba(232,68,68,0.12); color: #e84444; border: 1.5px solid rgba(232,68,68,0.25); }
+.jam-btn.red:hover    { background: #e84444; color: #fff; }
+
+/* ── Input ─────────────────────────────────── */
+.jam-input {
+    width: 100%; padding: 11px 14px; box-sizing: border-box;
+    background: rgba(255,255,255,0.05); border: 1.5px solid rgba(255,255,255,0.1);
+    border-radius: 10px; color: #fff; font-size: 13px; font-family: inherit;
+    outline: none; transition: border-color 0.2s;
+}
+.jam-input::placeholder { color: rgba(255,255,255,0.22); }
+.jam-input:focus        { border-color: rgba(29,185,84,0.45); }
+
+/* ── Divider ───────────────────────────────── */
+.jam-divider {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 11px; color: rgba(255,255,255,0.25); font-weight: 600;
+}
+.jam-divider-line { flex: 1; height: 1px; background: rgba(255,255,255,0.07); }
+
+/* ── Landing hero ──────────────────────────── */
+.jam-hero { text-align: center; padding: 20px 0 8px; }
+.jam-hero-icon {
+    width: 60px; height: 60px; border-radius: 16px;
+    background: linear-gradient(135deg,#1db954,#1ed760);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 14px; color: #fff;
+    box-shadow: 0 6px 24px rgba(29,185,84,0.35);
+}
+.jam-hero-title { font-size: 20px; font-weight: 900; margin: 0 0 8px; }
+.jam-hero-desc  { font-size: 13px; color: rgba(255,255,255,0.45); line-height: 1.55; margin: 0; }
+
+/* ── Error ─────────────────────────────────── */
+.jam-error {
+    display: flex; align-items: center; gap: 7px;
+    padding: 10px 14px;
+    background: rgba(232,68,68,0.08); border: 1px solid rgba(232,68,68,0.2);
+    border-radius: 8px; color: #ff8080; font-size: 12px;
+}
