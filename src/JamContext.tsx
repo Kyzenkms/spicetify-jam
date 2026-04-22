@@ -23,14 +23,38 @@ const fmtImg = (u?: string): string => {
     return '';
 };
 
-const getUser = () => {
+// Async fetch — the only reliable way to get the real Spotify user
+const fetchUserAsync = async (): Promise<{ name: string; image: string }> => {
     try {
-        const user = (Spicetify as any).Platform?.Session?.getUser();
-        return {
-            name: user?.displayName || document.querySelector('[data-testid="user-widget-name"]')?.textContent?.trim() || 'Listener',
-            image: user?.images?.[0]?.url || ''
-        };
-    } catch { return { name: 'Listener', image: '' }; }
+        // Best method: UserAPI (modern Spicetify, returns a proper Promise)
+        const user = await (Spicetify as any).Platform?.UserAPI?.getUser();
+        if (user?.displayName) {
+            return {
+                name: user.displayName,
+                image: fmtImg(user.images?.[0]?.url || user.images?.[0] || '')
+            };
+        }
+    } catch {}
+
+    try {
+        // Fallback: CosmosAsync internal Spotify profile endpoint
+        const res = await (Spicetify as any).CosmosAsync.get('sp://identity/v1/profile');
+        if (res?.displayName || res?.name) {
+            return {
+                name: res.displayName || res.name,
+                image: fmtImg(res.imageUrl || res.image || '')
+            };
+        }
+    } catch {}
+
+    // DOM / global fallbacks (synchronous)
+    const name =
+        (Spicetify as any).Username ||
+        document.querySelector('[data-testid="user-widget-name"]')?.textContent?.trim() ||
+        document.querySelector('.main-userWidget-displayName')?.textContent?.trim() ||
+        'Listener';
+
+    return { name, image: '' };
 };
 
 const getTrack = (): TrackInfo | null => {
@@ -87,10 +111,16 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const peerRef = useRef<Peer | null>(null);
     const conns = useRef<Map<string, DataConnection>>(new Map());
     const memberRegistry = useRef<Map<string, {name: string, image: string}>>(new Map());
+    const cachedUser = useRef<{ name: string; image: string }>({ name: 'Listener', image: '' });
     const refs = useRef({ isHost: false, connected: false, guestControls: false, jamId: '', targetUri: null as string | null, ignoreSync: false });
 
     useEffect(() => { refs.current.isHost = isHost; }, [isHost]);
     useEffect(() => { refs.current.connected = connected; }, [connected]);
+
+    // Pre-fetch the real Spotify user as soon as the provider mounts
+    useEffect(() => {
+        fetchUserAsync().then(u => { cachedUser.current = u; });
+    }, []);
     useEffect(() => { refs.current.guestControls = guestControls; }, [guestControls]);
     useEffect(() => { refs.current.jamId = jamId; }, [jamId]);
 
@@ -98,7 +128,7 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const hostConn = useCallback(() => conns.current.get(refs.current.jamId) || Array.from(conns.current.values())[0], []);
 
     const buildMembers = useCallback((): Member[] => {
-        const me = getUser();
+        const me = cachedUser.current;
         const result: Member[] = [{ id: 'host', name: me.name, image: me.image, isHost: true }];
         conns.current.forEach((_, pid) => {
             const m = memberRegistry.current.get(pid);
@@ -187,7 +217,7 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 memberRegistry.current.set(conn.peer, { name: d.name || 'Listener', image: d.image || '' });
                 const all = buildMembers(); setMembers(all);
                 conn.send({
-                    type: 'INIT', np: getTrack(), queue: getQueue(), host: getUser().name,
+                    type: 'INIT', np: getTrack(), queue: getQueue(), host: cachedUser.current.name,
                     gc: r.guestControls, playing: Spicetify.Player.isPlaying(), members: all,
                     progress: Spicetify.Player.getProgress(), duration: Spicetify.Player.getDuration()
                 });
@@ -244,7 +274,7 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return new Promise<void>((res, rej) => {
             p.on('open', id => {
                 setJamId(id); setIsHost(true); setConnected(true); setError(null);
-                const me = getUser(); setHostName(me.name); setMembers([{ id: 'host', name: me.name, image: me.image, isHost: true }]);
+                const me = cachedUser.current; setHostName(me.name); setMembers([{ id: 'host', name: me.name, image: me.image, isHost: true }]);
                 const t = getTrack(); if (t) { setNowPlaying(t); refs.current.targetUri = t.uri || null; }
                 setIsPlaying(Spicetify.Player.isPlaying()); setProgress(Spicetify.Player.getProgress()); setDuration(Spicetify.Player.getDuration());
                 setTimeout(refreshQueue, 500); res();
@@ -256,7 +286,7 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const joinJam = async (id: string, name?: string): Promise<void> => {
         const cleanId = id.includes('jam=') ? id.split('jam=')[1] : id.trim();
-        const me = getUser(); const p = new Peer(); peerRef.current = p;
+        const me = cachedUser.current; const p = new Peer(); peerRef.current = p;
         return new Promise<void>((res, rej) => {
             p.on('open', () => {
                 const conn = p.connect(cleanId);
