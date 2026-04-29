@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://raw.githubusercontent.com/Kyzenkms/spicetify-jam/main/assets/banner.png" alt="Spicetify Jam Banner" width="100%" />
+  <img src="https://raw.githubusercontent.com/Kyzenkms/spicetify-jam/main/assets/logo.png" alt="Spicetify Jam Banner" width="100%" />
 
   <h1>🎵 Spicetify Jam</h1>
   <p><b>Real-time social listening sessions for Spotify (via Spicetify)</b></p>
