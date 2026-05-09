@@ -21,7 +21,10 @@ const PEER_CONFIG = {
     config: {
         iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:global.stun.twilio.com:3478' }
+            { urls: 'stun:global.stun.twilio.com:3478' },
+            { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+            { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+            { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
         ]
     }
 };
@@ -137,7 +140,14 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const memberRegistry = useRef<Map<string, {name: string, image: string}>>(new Map());
     const cachedUser = useRef<{ name: string; image: string }>({ name: 'Listener', image: '' });
     const userPromise = useRef<Promise<{ name: string; image: string }> | null>(null);
-    const refs = useRef({ isHost: false, connected: false, guestControls: false, jamId: '', targetUri: null as string | null, ignoreSync: false });
+    const refs = useRef({ isHost: false, connected: false, guestControls: false, jamId: '', targetUri: null as string | null, ignoreSync: false, isPlaying: false });
+    const cmdThrottle = useRef<Map<string, number>>(new Map());
+    const lastHostMsg = useRef(0);
+    const reconnectAttempt = useRef(0);
+    const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const songDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const seekTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+    const ctxMenuItem = useRef<any>(null);
 
     useEffect(() => { refs.current.isHost = isHost; }, [isHost]);
     useEffect(() => { refs.current.connected = connected; }, [connected]);
@@ -164,17 +174,21 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, []);
     useEffect(() => { refs.current.guestControls = guestControls; }, [guestControls]);
     useEffect(() => { refs.current.jamId = jamId; }, [jamId]);
+    useEffect(() => { refs.current.isPlaying = isPlaying; }, [isPlaying]);
 
     const broadcast = useCallback((d: any) => conns.current.forEach(c => c.open && c.send(d)), []);
     const hostConn = useCallback(() => conns.current.get(refs.current.jamId) || Array.from(conns.current.values())[0], []);
 
     const buildMembers = useCallback((): Member[] => {
         const me = cachedUser.current;
-        const result: Member[] = [{ id: 'host', name: me.name, image: me.image, isHost: true }];
-        conns.current.forEach((_, pid) => {
-            const m = memberRegistry.current.get(pid);
-            result.push({ id: pid, name: m?.name || 'Listener', image: m?.image || '' });
-        });
+        const result: Member[] = [];
+        if (refs.current.isHost) {
+            result.push({ id: 'host', name: me.name, image: me.image, isHost: true });
+            conns.current.forEach((_, pid) => {
+                const m = memberRegistry.current.get(pid);
+                result.push({ id: pid, name: m?.name || 'Listener', image: m?.image || '' });
+            });
+        }
         return result;
     }, []);
 
@@ -188,6 +202,27 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 } catch {}
             } else if (refs.current.connected) {
                 const c = hostConn(); if (c?.open) c.send({ type: 'PING', ts: Date.now() });
+                if (lastHostMsg.current > 0 && Date.now() - lastHostMsg.current > 10000) {
+                    setError('Connection lost - trying to reconnect...');
+                    lastHostMsg.current = 0;
+                    if (reconnectAttempt.current < 3) {
+                        reconnectAttempt.current++;
+                        reconnectTimer.current = setTimeout(() => {
+                            if (!peerRef.current || !refs.current.jamId) return;
+                            const newConn = peerRef.current.connect(refs.current.jamId);
+                            setupConn(newConn);
+                            conns.current.set(refs.current.jamId, newConn);
+                            setConnected(true); setError(null);
+                            reconnectAttempt.current = 0;
+                        }, reconnectAttempt.current * 2000);
+                    } else { leaveJam(); setError('Lost connection to host'); }
+                }
+                try {
+                    const localPlaying = Spicetify.Player.isPlaying();
+                    if (localPlaying !== refs.current.isPlaying && !refs.current.isHost) {
+                        const c = hostConn(); if (c?.open) c.send({ type: 'SYNC' });
+                    }
+                } catch {}
             }
         }, 1000);
         return () => clearInterval(id);
@@ -213,12 +248,9 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const removeFromQueue = useCallback(async (uri: string, uid?: string) => {
         if (refs.current.isHost) {
             try { await Spicetify.removeFromQueue([{ uri, uid } as any]); setTimeout(refreshQueue, 500); }
-            catch { 
-                const newQ = queue.filter(t => (uid ? t.uid !== uid : t.uri !== uri));
-                setQueue(newQ); broadcast({ type: 'Q', queue: newQ }); 
-            }
+            catch { setTimeout(refreshQueue, 800); }
         } else { const c = hostConn(); c?.open && c.send({ type: 'RM_Q', uri, uid }); }
-    }, [refreshQueue, hostConn, broadcast, queue]);
+    }, [refreshQueue, hostConn]);
 
     const moveInQueue = useCallback((from: number, to: number) => {
         setQueue(p => { const u = [...p]; const [m] = u.splice(from, 1); u.splice(to, 0, m); broadcast({ type: 'Q', queue: u }); return u; });
@@ -235,16 +267,21 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, [hostConn]);
 
     const toggleGuestControls = () => { if (!isHost) return; const v = !guestControls; setGuestControls(v); broadcast({ type: 'GCTRL', on: v }); };
-    const play = () => { if (isHost) { Spicetify.Player.play(); setIsPlaying(true); } else if (guestControls) { const c = hostConn(); c?.send({ type: 'CMD', a: 'play' }); } };
-    const pause = () => { if (isHost) { Spicetify.Player.pause(); setIsPlaying(false); } else if (guestControls) { const c = hostConn(); c?.send({ type: 'CMD', a: 'pause' }); } };
-    const next = () => { if (isHost) Spicetify.Player.next(); else if (guestControls) { const c = hostConn(); c?.send({ type: 'CMD', a: 'next' }); } };
-    const prev = () => { if (isHost) Spicetify.Player.back(); else if (guestControls) { const c = hostConn(); c?.send({ type: 'CMD', a: 'back' }); } };
+    const play = () => { if (refs.current.isHost) { Spicetify.Player.play(); setIsPlaying(true); } else if (refs.current.guestControls) { const c = hostConn(); c?.send({ type: 'CMD', a: 'play' }); } };
+    const pause = () => { if (refs.current.isHost) { Spicetify.Player.pause(); setIsPlaying(false); } else if (refs.current.guestControls) { const c = hostConn(); c?.send({ type: 'CMD', a: 'pause' }); } };
+    const next = () => { if (refs.current.isHost) Spicetify.Player.next(); else if (refs.current.guestControls) { const c = hostConn(); c?.send({ type: 'CMD', a: 'next' }); } };
+    const prev = () => { if (refs.current.isHost) Spicetify.Player.back(); else if (refs.current.guestControls) { const c = hostConn(); c?.send({ type: 'CMD', a: 'back' }); } };
     const requestSync = () => { if (!refs.current.isHost) { const c = hostConn(); c?.send({ type: 'SYNC' }); } };
 
     const leaveJam = useCallback(() => {
         conns.current.forEach(c => c.close()); conns.current.clear(); memberRegistry.current.clear(); peerRef.current?.destroy(); peerRef.current = null;
         setConnected(false); setJamId(''); setIsHost(false); setMembers([]); setQueue([]); setNowPlaying(null);
         refs.current.targetUri = null; setPing(-1);
+        reconnectAttempt.current = 0;
+        if (reconnectTimer.current) { clearTimeout(reconnectTimer.current); reconnectTimer.current = null; }
+        if (songDebounce.current) { clearTimeout(songDebounce.current); songDebounce.current = null; }
+        seekTimers.current.forEach(clearTimeout); seekTimers.current = [];
+        cmdThrottle.current.clear();
     }, []);
 
     const kickMember = (id: string) => {
@@ -255,6 +292,7 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const onData = useCallback(async (d: any, conn: DataConnection) => {
         const r = refs.current;
+        if (!r.isHost) lastHostMsg.current = Date.now();
         switch (d.type) {
             case 'JOIN':
                 if (!r.isHost) return;
@@ -281,6 +319,8 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             case 'GCTRL': setGuestControls(d.on); break;
             case 'CMD':
                 if (!r.isHost || !r.guestControls) return;
+                if (Date.now() - (cmdThrottle.current.get(conn.peer) || 0) < 500) return;
+                cmdThrottle.current.set(conn.peer, Date.now());
                 if (d.a === 'play') Spicetify.Player.play(); else if (d.a === 'pause') Spicetify.Player.pause();
                 else if (d.a === 'next') Spicetify.Player.next(); else if (d.a === 'back') Spicetify.Player.back();
                 else if (d.a === 'seek') Spicetify.Player.seek(d.pos);
@@ -298,7 +338,13 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         if (!Spicetify.Player.isPlaying()) Spicetify.Player.play();
                     } else {
                         r.ignoreSync = true; setIsPlaying(true);
-                        Spicetify.Player.playUri(d.uri).then(() => { const delay = Date.now() - d.ts; setTimeout(() => Spicetify.Player.seek(d.pos + delay), 800); });
+                        const playTs = Date.now();
+                        Spicetify.Player.playUri(d.uri).then(() => {
+                            const delay = Date.now() - playTs + (Date.now() - d.ts);
+                            const seekMs = d.pos + (Date.now() - d.ts);
+                            const sid = setTimeout(() => Spicetify.Player.seek(seekMs), Math.max(300, delay));
+                            seekTimers.current.push(sid);
+                        });
                     }
                 }
                 if (d.np) setNowPlaying(d.np);
@@ -321,7 +367,7 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         conn.on('close', () => { conns.current.delete(conn.peer); memberRegistry.current.delete(conn.peer); setMembers(buildMembers()); });
     }, [onData, buildMembers]);
 
-    const startJam = async (): Promise<void> => {
+    const startJam = async (retries = 0): Promise<void> => {
         const me = await (userPromise.current || fetchUserAsync());
         cachedUser.current = me;
 
@@ -336,7 +382,7 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 setTimeout(refreshQueue, 500); res();
             });
             p.on('connection', setupConn);
-            p.on('error', e => { if ((e as any).type === 'id-taken') { p.destroy(); startJam().then(res).catch(rej); } else { setError(`Connection error: ${(e as any).type}`); rej(e); } });
+            p.on('error', e => { if ((e as any).type === 'id-taken' && retries < 5) { p.destroy(); startJam(retries + 1).then(res).catch(rej); } else { setError(`Connection error: ${(e as any).type}`); rej(e); } });
         });
     };
 
@@ -355,7 +401,39 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     conn.send({ type: 'JOIN', name: me.name, image: me.image }); res();
                 });
                 conn.on('data', (d: any) => onData(d, conn));
-                conn.on('close', () => { leaveJam(); setError('Host ended the session'); });
+                conn.on('close', () => {
+                    if (reconnectAttempt.current >= 3) { leaveJam(); setError('Host ended the session'); return; }
+                    reconnectAttempt.current++;
+                    setError(`Reconnecting (${reconnectAttempt.current}/3)...`);
+                    reconnectTimer.current = setTimeout(() => {
+                        if (!peerRef.current) return;
+                        const newConn = peerRef.current.connect(cleanId);
+                        newConn.on('open', () => {
+                            conns.current.clear();
+                            conns.current.set(cleanId, newConn);
+                            setConnected(true); setError(null);
+                            reconnectAttempt.current = 0;
+                            newConn.send({ type: 'JOIN', name: me.name, image: me.image });
+                        });
+                        newConn.on('data', (d: any) => onData(d, newConn));
+                        newConn.on('close', () => {
+                            if (reconnectAttempt.current >= 3) { leaveJam(); setError('Host ended the session'); }
+                            else {
+                                reconnectAttempt.current++;
+                                setError(`Reconnecting (${reconnectAttempt.current}/3)...`);
+                                reconnectTimer.current = setTimeout(() => {
+                                    if (!peerRef.current) return;
+                                    const retryConn = peerRef.current.connect(cleanId);
+                                    setupConn(retryConn);
+                                    conns.current.set(cleanId, retryConn);
+                                    setConnected(true); setError(null);
+                                    reconnectAttempt.current = 0;
+                                }, reconnectAttempt.current * 2000);
+                            }
+                        });
+                        newConn.on('error', () => { if (reconnectAttempt.current < 3) { /* handled by close */ } else { leaveJam(); setError('Could not reconnect'); } });
+                    }, reconnectAttempt.current * 1500);
+                });
                 conn.on('error', () => { setError('Could not connect'); rej(); });
             });
             p.on('error', e => { setError(`Error: ${(e as any).type}`); rej(e); });
@@ -365,6 +443,8 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     useEffect(() => {
         if (!connected) return;
         const onSong = () => {
+            if (songDebounce.current) clearTimeout(songDebounce.current);
+            songDebounce.current = setTimeout(() => {
             const uri = Spicetify.Player.data?.item?.uri;
             if (refs.current.isHost) {
                 const t = getTrack(); if (t) setNowPlaying(t);
@@ -377,6 +457,7 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     else { refs.current.ignoreSync = true; Spicetify.Player.playUri(refs.current.targetUri); Spicetify.showNotification('🔒 Locked to Jam'); }
                 }
             }
+            }, 300);
         };
         const onPP = () => {
             const playing = Spicetify.Player.isPlaying();
@@ -415,10 +496,16 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
         };
         Spicetify.Player.addEventListener('songchange', onSong); Spicetify.Player.addEventListener('onplaypause', onPP);
-        const qi = refs.current.isHost ? setInterval(refreshQueue, 5000) : null;
-        const driftI = !refs.current.isHost ? setInterval(() => { const c = hostConn(); if (c?.open) c.send({ type: 'SYNC' }); }, 15000) : null;
-        let ctxMenu: any; try { ctxMenu = new (Spicetify as any).ContextMenu.Item('Add to Jam', (uris: string[]) => uris?.forEach(u => addToQueue(u)), () => refs.current.connected, 'plus2px'); ctxMenu.register(); } catch {}
-        return () => { Spicetify.Player.removeEventListener('songchange', onSong); Spicetify.Player.removeEventListener('onplaypause', onPP); qi && clearInterval(qi); driftI && clearInterval(driftI); try { ctxMenu?.deregister(); } catch {} };
+        let qi: ReturnType<typeof setInterval> | null = null;
+        let driftI: ReturnType<typeof setInterval> | null = null;
+        qi = refs.current.isHost ? setInterval(refreshQueue, 5000) : null;
+        driftI = !refs.current.isHost ? setInterval(() => { const c = hostConn(); if (c?.open) c.send({ type: 'SYNC' }); }, 15000) : null;
+        try {
+            if (ctxMenuItem.current) { try { ctxMenuItem.current.deregister(); } catch {} }
+            ctxMenuItem.current = new (Spicetify as any).ContextMenu.Item('Add to Jam', (uris: string[]) => uris?.forEach(u => addToQueue(u)), () => refs.current.connected, 'plus2px');
+            ctxMenuItem.current.register();
+        } catch {}
+        return () => { Spicetify.Player.removeEventListener('songchange', onSong); Spicetify.Player.removeEventListener('onplaypause', onPP); if (qi) clearInterval(qi); if (driftI) clearInterval(driftI); try { ctxMenuItem.current?.deregister(); } catch {} };
     }, [connected, isHost, broadcast, refreshQueue, addToQueue, hostConn]);
 
     useEffect(() => {
