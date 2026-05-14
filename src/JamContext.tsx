@@ -92,11 +92,32 @@ const extractTrack = (t: any): TrackInfo => {
 
 const getQueue = async (): Promise<TrackInfo[]> => {
     try {
-        let tracks = Spicetify.Queue?.nextTracks;
+        let tracks: any[] = [];
 
-        if (!tracks || tracks.length === 0) {
+        // 1. Try Platform API (best for comprehensive manual + auto/context queue)
+        try {
             const res = await (Spicetify as any).Platform?.PlayerAPI?.getQueue();
-            tracks = res?.nextTracks || res?.tracks || [];
+            if (res) {
+                const queued = res.queued || [];
+                const autoplay = res.autoplay || res.context || res.nextTracks || [];
+                
+                // Combine manual queue and auto queue
+                if (queued.length > 0 || autoplay.length > 0) {
+                    tracks = [...queued, ...autoplay];
+                }
+            }
+        } catch {}
+
+        // 2. Try Player data as fallback
+        if (!tracks || tracks.length === 0) {
+            if (Spicetify.Player?.data?.next_tracks) {
+                tracks = Spicetify.Player.data.next_tracks;
+            }
+        }
+
+        // 3. Last resort fallbacks
+        if (!tracks || tracks.length === 0) {
+            tracks = Spicetify.Queue?.nextTracks || [];
         }
 
         if (!tracks || tracks.length === 0) {
