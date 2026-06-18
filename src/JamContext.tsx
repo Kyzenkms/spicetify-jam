@@ -289,9 +289,39 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (!refs.current.isHost) return;
         // Don't overwrite a manually reordered queue for 15 seconds
         if (Date.now() - queueUserOrdered.current < 15000) return;
-        const q = await getQueue(); 
-        setQueue(q); 
-        broadcast({ type: 'Q', queue: q });
+        const spotifyQueue = await getQueue();
+        const currentQueue = queueRef.current;
+
+        // Merge instead of replace: keep the Jam queue order intact,
+        // only add new tracks and remove tracks that disappeared from Spotify.
+        if (currentQueue.length === 0 && spotifyQueue.length === 0) return;
+
+        const spotifyUris = new Set(spotifyQueue.map(t => t.uri));
+        const currentUris = new Set(currentQueue.map(t => t.uri));
+
+        // 1. Remove tracks that are no longer in Spotify's queue
+        let merged = currentQueue.filter(t => spotifyUris.has(t.uri));
+
+        // 2. Add new tracks (in Spotify order) at the end
+        for (const track of spotifyQueue) {
+            if (!currentUris.has(track.uri)) {
+                merged.push(track);
+            }
+        }
+
+        // 3. Update metadata (title, artist, art) for existing tracks
+        //    in case Spotify returned richer data
+        const spotifyMap = new Map(spotifyQueue.map(t => [t.uri, t]));
+        merged = merged.map(t => {
+            const updated = spotifyMap.get(t.uri);
+            return updated ? { ...t, ...updated } : t;
+        });
+
+        // Only broadcast if the queue actually changed
+        if (JSON.stringify(merged.map(t => t.uri)) !== JSON.stringify(currentQueue.map(t => t.uri))) {
+            setQueue(merged);
+            broadcast({ type: 'Q', queue: merged });
+        }
     }, [broadcast]);
 
     const addToQueue = useCallback(async (uris: string | string[]) => {
