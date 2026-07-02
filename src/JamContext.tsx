@@ -111,7 +111,7 @@ const getQueue = async (): Promise<TrackInfo[]> => {
             const res = await (Spicetify as any).Platform?.PlayerAPI?.getQueue();
             if (res) {
                 const queued = res.queued || [];
-                const autoplay = res.autoplay || res.context || res.nextTracks || [];
+                const autoplay = res.nextUp || res.autoplay || res.context || res.nextTracks || [];
                 
                 // Combine manual queue and auto queue
                 if (queued.length > 0 || autoplay.length > 0) {
@@ -150,6 +150,21 @@ const getQueue = async (): Promise<TrackInfo[]> => {
     } catch { return []; }
 };
 
+// Rewrite Spotify's native manual queue to match `tracks`. Removals are
+// per-track: a single batched removeFromQueue rejects wholesale when any entry
+// (e.g. a context track that was never in the manual queue) can't be removed,
+// and the re-add would then duplicate every track still in the queue.
+const rewriteNativeQueue = async (tracks: TrackInfo[]) => {
+    for (const t of tracks) {
+        if (!t.uri) continue;
+        try { await Spicetify.removeFromQueue([{ uri: t.uri, uid: t.uid } as any]); } catch {}
+    }
+    for (const t of tracks) {
+        if (!t.uri) continue;
+        try { await Spicetify.addToQueue([{ uri: t.uri }]); } catch {}
+    }
+};
+
 const Ctx = createContext<JamState | undefined>(undefined);
 
 export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -173,7 +188,7 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const memberRegistry = useRef<Map<string, {name: string, image: string}>>(new Map());
     const cachedUser = useRef<{ name: string; image: string }>({ name: 'Listener', image: '' });
     const userPromise = useRef<Promise<{ name: string; image: string }> | null>(null);
-    const refs = useRef({ isHost: false, connected: false, guestControls: false, jamId: '', targetUri: null as string | null, ignoreSync: false, isPlaying: false, forcingPause: false });
+    const refs = useRef({ isHost: false, connected: false, guestControls: false, jamId: '', targetUri: null as string | null, ignoreSync: false, isPlaying: false, forcingPause: false, lastProgress: 0, lastDuration: 0, remotePlayTs: 0 });
     const cmdThrottle = useRef<Map<string, number>>(new Map());
     const lastHostMsg = useRef(0);
     const reconnectAttempt = useRef(0);
@@ -188,6 +203,9 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const queueUserOrdered = useRef<number>(0);
     // Debounce timer for syncing reordered queue back to Spotify's native queue
     const reorderDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+    // URIs removed from the Jam queue that can't be removed natively (context
+    // tracks) — filtered out of refreshes and skipped if they start playing
+    const removedUris = useRef<Set<string>>(new Set());
 
     useEffect(() => { queueRef.current = queue; }, [queue]);
 
@@ -244,8 +262,14 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             } else if (refs.current.connected) {
                 // Update progress/duration from local player for seek bar
                 try {
-                    setProgress(Spicetify.Player.getProgress());
-                    setDuration(Spicetify.Player.getDuration());
+                    const p = Spicetify.Player.getProgress();
+                    const d = Spicetify.Player.getDuration();
+                    setProgress(p);
+                    setDuration(d);
+                    // Remember where we were — songchange uses this to tell a
+                    // deliberate track change from a natural end-of-track advance
+                    refs.current.lastProgress = p;
+                    refs.current.lastDuration = d;
                 } catch {}
                 const c = hostConn(); if (c?.open) c.send({ type: 'PING', ts: Date.now() });
                 if (lastHostMsg.current > 0 && Date.now() - lastHostMsg.current > 10000) {
@@ -289,47 +313,30 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (!refs.current.isHost) return;
         // Don't overwrite a manually reordered queue for 15 seconds
         if (Date.now() - queueUserOrdered.current < 15000) return;
-        const spotifyQueue = await getQueue();
+        // A playUri transition is mid-flight; the restore will refresh when done
+        if (pendingQueueRestore.current.length > 0) return;
+
+        // Mirror Spotify's real order (manual queue first, then context tracks)
+        // so the Jam queue always matches what a native "next" will actually
+        // play. Manual reorders are protected by the 15s lock above and synced
+        // back into the native queue by moveInQueue.
+        const spotifyQueue = (await getQueue()).filter(t => !removedUris.current.has(t.uri!));
         const currentQueue = queueRef.current;
 
-        // Merge instead of replace: keep the Jam queue order intact,
-        // only add new tracks and remove tracks that disappeared from Spotify.
-        if (currentQueue.length === 0 && spotifyQueue.length === 0) return;
-
-        const spotifyUris = new Set(spotifyQueue.map(t => t.uri));
-        const currentUris = new Set(currentQueue.map(t => t.uri));
-
-        // 1. Remove tracks that are no longer in Spotify's queue
-        let merged = currentQueue.filter(t => spotifyUris.has(t.uri));
-
-        // 2. Add new tracks (in Spotify order) at the end
-        for (const track of spotifyQueue) {
-            if (!currentUris.has(track.uri)) {
-                merged.push(track);
-            }
-        }
-
-        // 3. Update metadata (title, artist, art) for existing tracks
-        //    in case Spotify returned richer data
-        const spotifyMap = new Map(spotifyQueue.map(t => [t.uri, t]));
-        merged = merged.map(t => {
-            const updated = spotifyMap.get(t.uri);
-            return updated ? { ...t, ...updated } : t;
-        });
-
-        // Only broadcast if the queue actually changed
-        if (JSON.stringify(merged.map(t => t.uri)) !== JSON.stringify(currentQueue.map(t => t.uri))) {
-            setQueue(merged);
-            broadcast({ type: 'Q', queue: merged });
+        if (JSON.stringify(spotifyQueue.map(t => t.uri)) !== JSON.stringify(currentQueue.map(t => t.uri))) {
+            setQueue(spotifyQueue);
+            broadcast({ type: 'Q', queue: spotifyQueue });
         }
     }, [broadcast]);
 
     const addToQueue = useCallback(async (uris: string | string[]) => {
         const uriArray = Array.isArray(uris) ? uris : [uris];
         if (refs.current.isHost) {
-            try { 
-                await Spicetify.addToQueue(uriArray.map(uri => ({ uri }))); 
-                Spicetify.showNotification(uriArray.length > 1 ? `Added ${uriArray.length} tracks!` : 'Added!'); 
+            try {
+                await Spicetify.addToQueue(uriArray.map(uri => ({ uri })));
+                Spicetify.showNotification(uriArray.length > 1 ? `Added ${uriArray.length} tracks!` : 'Added!');
+                // Re-adding a previously removed track un-blocks it
+                uriArray.forEach(u => removedUris.current.delete(u));
                 // Reset dirty flag so the newly added track is fetched from Spotify
                 queueUserOrdered.current = 0;
                 setTimeout(refreshQueue, 1500); 
@@ -347,21 +354,21 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const removeFromQueue = useCallback(async (uri: string, uid?: string) => {
         if (refs.current.isHost) {
-            try { 
-                await Spicetify.removeFromQueue([{ uri, uid } as any]); 
-                // Reset dirty flag so removal is reflected from actual Spotify queue
-                queueUserOrdered.current = 0;
-                setTimeout(refreshQueue, 500); 
-            }
-            catch { 
-                queueUserOrdered.current = 0;
-                setTimeout(refreshQueue, 800); 
-            }
-        } else { 
-            const c = hostConn(); 
-            if (c?.open) c.send({ type: 'RM_Q', uri, uid }); 
+            // Context tracks can't be removed from Spotify's native queue — the
+            // call no-ops and the next refresh would resurrect them. Blocklist
+            // the uri so refreshes filter it and songchange skips it.
+            removedUris.current.add(uri);
+            const newQueue = queueRef.current.filter(t => t.uri !== uri);
+            setQueue(newQueue);
+            broadcast({ type: 'Q', queue: newQueue });
+            try { await Spicetify.removeFromQueue([{ uri, uid } as any]); } catch {}
+            queueUserOrdered.current = 0;
+            setTimeout(refreshQueue, 500);
+        } else {
+            const c = hostConn();
+            if (c?.open) c.send({ type: 'RM_Q', uri, uid });
         }
-    }, [refreshQueue, hostConn]);
+    }, [refreshQueue, hostConn, broadcast]);
 
     const moveInQueue = useCallback((from: number, to: number) => {
         if (!refs.current.isHost) {
@@ -385,14 +392,7 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         if (reorderDebounce.current) clearTimeout(reorderDebounce.current);
         reorderDebounce.current = setTimeout(async () => {
-            const finalQueue = [...queueRef.current];
-            try {
-                const toRemove = finalQueue.map(t => ({ uri: t.uri, uid: t.uid } as any));
-                if (toRemove.length > 0) await Spicetify.removeFromQueue(toRemove);
-                for (const t of finalQueue) {
-                    try { if (t.uri) await Spicetify.addToQueue([{ uri: t.uri }]); } catch {}
-                }
-            } catch {}
+            await rewriteNativeQueue([...queueRef.current]);
             queueUserOrdered.current = Date.now();
         }, 800);
     }, [broadcast, hostConn]);
@@ -407,6 +407,9 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 setQueue(newQueue);
                 broadcast({ type: 'Q', queue: newQueue });
             }
+            // Lock the Jam queue so the 5s refreshQueue doesn't replace it with
+            // the standalone track's autoplay/radio before the restore finishes
+            queueUserOrdered.current = Date.now();
             Spicetify.Player.playUri(uri);
         }
         else if (refs.current.guestControls) { 
@@ -458,11 +461,27 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (queueRef.current.length > 0) {
             const nextTrack = queueRef.current[0];
             refs.current.targetUri = nextTrack.uri!;
-            pendingQueueRestore.current = [];
             const newQueue = queueRef.current.slice(1);
             setQueue(newQueue);
             broadcast({ type: 'Q', queue: newQueue });
-            Spicetify.Player.playUri(nextTrack.uri!);
+
+            const nativeNext: any = Spicetify.Queue?.nextTracks?.[0];
+            const nativeNextUri = nativeNext?.contextTrack?.uri || nativeNext?.uri;
+            if (nativeNextUri && nativeNextUri === nextTrack.uri) {
+                // Jam queue head matches Spotify's own next track — use a native
+                // skip so the playing context (playlist/album continuation) stays
+                // intact. playUri would strand playback in a single-track context
+                // whose autoplay is radio, i.e. random songs.
+                pendingQueueRestore.current = [];
+                Spicetify.Player.next();
+            } else {
+                // Jam queue diverged from Spotify's — play directly, then restore
+                // the remaining tracks into Spotify's native queue on songchange
+                // so the native next button keeps following the Jam queue.
+                pendingQueueRestore.current = newQueue;
+                queueUserOrdered.current = Date.now();
+                Spicetify.Player.playUri(nextTrack.uri!);
+            }
         } else {
             Spicetify.Player.next();
         }
@@ -528,6 +547,7 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         seekTimers.current = [];
         cmdThrottle.current.clear();
         pendingQueueRestore.current = [];
+        removedUris.current.clear();
     }, []);
 
 
@@ -589,7 +609,8 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         setQueue(newQueue);
                         broadcast({ type: 'Q', queue: newQueue });
                     }
-                    refs.current.targetUri = d.uri; 
+                    refs.current.targetUri = d.uri;
+                    queueUserOrdered.current = Date.now();
                     Spicetify.Player.playUri(d.uri);
                 }
                 break;
@@ -614,6 +635,7 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         if (trackChanged) {
                             // Different track: load it then immediately pause
                             r.ignoreSync = true;
+                            r.remotePlayTs = Date.now();
                             setIsPlaying(false);
                             Spicetify.Player.playUri(d.uri).then(() => {
                                 setTimeout(() => { Spicetify.Player.pause(); r.ignoreSync = false; }, 150);
@@ -628,10 +650,12 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         const delay = Date.now() - d.ts;
                         Spicetify.Player.seek(d.pos + delay);
                         setIsPlaying(true);
+                        r.remotePlayTs = Date.now();
                         if (!Spicetify.Player.isPlaying()) Spicetify.Player.play();
                     } else {
-                        r.ignoreSync = true; 
+                        r.ignoreSync = true;
                         setIsPlaying(true);
+                        r.remotePlayTs = Date.now();
                         const playTs = Date.now();
                         Spicetify.Player.playUri(d.uri).then(() => {
                             const delay = Date.now() - playTs + (Date.now() - d.ts);
@@ -808,6 +832,14 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             songDebounce.current = setTimeout(() => {
                 const uri = Spicetify.Player.data?.item?.uri;
                 if (refs.current.isHost) {
+                    // A context track "removed" from the Jam queue can't be removed
+                    // natively, so Spotify may still reach it — skip it once. Explicit
+                    // plays (targetUri already set to it) are respected.
+                    if (uri && uri !== refs.current.targetUri && removedUris.current.has(uri)) {
+                        removedUris.current.delete(uri);
+                        playNextInJamQueue();
+                        return;
+                    }
                     const t = getTrack(); if (t) setNowPlaying(t);
                     refs.current.targetUri = uri || null;
                     const hostPaused = !Spicetify.Player.isPlaying();
@@ -816,9 +848,7 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         const restore = pendingQueueRestore.current;
                         pendingQueueRestore.current = [];
                         (async () => {
-                            for (const tr of restore) {
-                                if (tr.uri) { try { await Spicetify.addToQueue([{ uri: tr.uri }]); } catch {} }
-                            }
+                            await rewriteNativeQueue(restore);
                             // Song changed: reset dirty flag so fresh queue is fetched
                             queueUserOrdered.current = 0;
                             setTimeout(refreshQueue, 1000);
@@ -831,15 +861,26 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 } else {
                     if (refs.current.ignoreSync) { refs.current.ignoreSync = false; return; }
                     if (uri && uri !== refs.current.targetUri && refs.current.targetUri) {
-                        if (refs.current.guestControls) { 
-                            const c = hostConn(); 
-                            if (c?.open) c.send({ type: 'CMD', a: 'playuri', uri }); 
-                        } else { 
-                            refs.current.ignoreSync = true; 
+                        // Natural end-of-track: guests run slightly ahead of the host,
+                        // so their player auto-advances into its own (junk) context
+                        // first. Don't command the host to play that random track —
+                        // just ask for a sync; the host advances and broadcasts the
+                        // real next song moments later.
+                        const nearEnd = refs.current.lastDuration > 0 &&
+                            refs.current.lastDuration - refs.current.lastProgress < 3000;
+                        if (nearEnd) {
+                            const c = hostConn();
+                            if (c?.open) c.send({ type: 'SYNC' });
+                        } else if (refs.current.guestControls) {
+                            const c = hostConn();
+                            if (c?.open) c.send({ type: 'CMD', a: 'playuri', uri });
+                        } else {
+                            refs.current.ignoreSync = true;
+                            refs.current.remotePlayTs = Date.now();
                             Spicetify.Player.playUri(refs.current.targetUri).catch(() => {
                                 refs.current.ignoreSync = false;
                             });
-                            Spicetify.showNotification('🔒 Locked to Jam'); 
+                            Spicetify.showNotification('🔒 Locked to Jam');
                         }
                     }
                 }
@@ -854,12 +895,16 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 const dur = Spicetify.Player.getDuration();
                 broadcast({ type: 'PS', p: playing, pos, dur });
                 if (playing) {
-                    broadcast({ type: 'PLAY', uri: refs.current.targetUri || '', pos, ts: Date.now(), np: getTrack() });
+                    broadcast({ type: 'PLAY', uri: Spicetify.Player.data?.item?.uri || refs.current.targetUri || '', pos, ts: Date.now(), np: getTrack() });
                 } else {
                     broadcast({ type: 'PAUSE' });
                 }
             } else {
                 if (playing) {
+                    // Playback that we just started ourselves in response to a host
+                    // PLAY message — not the user pressing play. Accept it silently,
+                    // otherwise guests without controls force-pause every host play.
+                    if (Date.now() - refs.current.remotePlayTs < 2000) return;
                     if (!refs.current.guestControls) {
                         // Guard against re-entrant pause loop
                         if (refs.current.forcingPause) return;
@@ -912,7 +957,7 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             if (driftI) clearInterval(driftI); 
             try { ctxMenuItem.current?.deregister(); } catch {} 
         };
-    }, [connected, isHost, broadcast, refreshQueue, addToQueue, hostConn]);
+    }, [connected, isHost, broadcast, refreshQueue, addToQueue, hostConn, playNextInJamQueue]);
 
     useEffect(() => {
         const hash = window.location.hash.slice(1);
