@@ -150,6 +150,21 @@ const getQueue = async (): Promise<TrackInfo[]> => {
     } catch { return []; }
 };
 
+// Rewrite Spotify's native manual queue to match `tracks`. Removals are
+// per-track: a single batched removeFromQueue rejects wholesale when any entry
+// (e.g. a context track that was never in the manual queue) can't be removed,
+// and the re-add would then duplicate every track still in the queue.
+const rewriteNativeQueue = async (tracks: TrackInfo[]) => {
+    for (const t of tracks) {
+        if (!t.uri) continue;
+        try { await Spicetify.removeFromQueue([{ uri: t.uri, uid: t.uid } as any]); } catch {}
+    }
+    for (const t of tracks) {
+        if (!t.uri) continue;
+        try { await Spicetify.addToQueue([{ uri: t.uri }]); } catch {}
+    }
+};
+
 const Ctx = createContext<JamState | undefined>(undefined);
 
 export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -188,6 +203,9 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const queueUserOrdered = useRef<number>(0);
     // Debounce timer for syncing reordered queue back to Spotify's native queue
     const reorderDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+    // URIs removed from the Jam queue that can't be removed natively (context
+    // tracks) — filtered out of refreshes and skipped if they start playing
+    const removedUris = useRef<Set<string>>(new Set());
 
     useEffect(() => { queueRef.current = queue; }, [queue]);
 
@@ -295,47 +313,30 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (!refs.current.isHost) return;
         // Don't overwrite a manually reordered queue for 15 seconds
         if (Date.now() - queueUserOrdered.current < 15000) return;
-        const spotifyQueue = await getQueue();
+        // A playUri transition is mid-flight; the restore will refresh when done
+        if (pendingQueueRestore.current.length > 0) return;
+
+        // Mirror Spotify's real order (manual queue first, then context tracks)
+        // so the Jam queue always matches what a native "next" will actually
+        // play. Manual reorders are protected by the 15s lock above and synced
+        // back into the native queue by moveInQueue.
+        const spotifyQueue = (await getQueue()).filter(t => !removedUris.current.has(t.uri!));
         const currentQueue = queueRef.current;
 
-        // Merge instead of replace: keep the Jam queue order intact,
-        // only add new tracks and remove tracks that disappeared from Spotify.
-        if (currentQueue.length === 0 && spotifyQueue.length === 0) return;
-
-        const spotifyUris = new Set(spotifyQueue.map(t => t.uri));
-        const currentUris = new Set(currentQueue.map(t => t.uri));
-
-        // 1. Remove tracks that are no longer in Spotify's queue
-        let merged = currentQueue.filter(t => spotifyUris.has(t.uri));
-
-        // 2. Add new tracks (in Spotify order) at the end
-        for (const track of spotifyQueue) {
-            if (!currentUris.has(track.uri)) {
-                merged.push(track);
-            }
-        }
-
-        // 3. Update metadata (title, artist, art) for existing tracks
-        //    in case Spotify returned richer data
-        const spotifyMap = new Map(spotifyQueue.map(t => [t.uri, t]));
-        merged = merged.map(t => {
-            const updated = spotifyMap.get(t.uri);
-            return updated ? { ...t, ...updated } : t;
-        });
-
-        // Only broadcast if the queue actually changed
-        if (JSON.stringify(merged.map(t => t.uri)) !== JSON.stringify(currentQueue.map(t => t.uri))) {
-            setQueue(merged);
-            broadcast({ type: 'Q', queue: merged });
+        if (JSON.stringify(spotifyQueue.map(t => t.uri)) !== JSON.stringify(currentQueue.map(t => t.uri))) {
+            setQueue(spotifyQueue);
+            broadcast({ type: 'Q', queue: spotifyQueue });
         }
     }, [broadcast]);
 
     const addToQueue = useCallback(async (uris: string | string[]) => {
         const uriArray = Array.isArray(uris) ? uris : [uris];
         if (refs.current.isHost) {
-            try { 
-                await Spicetify.addToQueue(uriArray.map(uri => ({ uri }))); 
-                Spicetify.showNotification(uriArray.length > 1 ? `Added ${uriArray.length} tracks!` : 'Added!'); 
+            try {
+                await Spicetify.addToQueue(uriArray.map(uri => ({ uri })));
+                Spicetify.showNotification(uriArray.length > 1 ? `Added ${uriArray.length} tracks!` : 'Added!');
+                // Re-adding a previously removed track un-blocks it
+                uriArray.forEach(u => removedUris.current.delete(u));
                 // Reset dirty flag so the newly added track is fetched from Spotify
                 queueUserOrdered.current = 0;
                 setTimeout(refreshQueue, 1500); 
@@ -353,21 +354,21 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const removeFromQueue = useCallback(async (uri: string, uid?: string) => {
         if (refs.current.isHost) {
-            try { 
-                await Spicetify.removeFromQueue([{ uri, uid } as any]); 
-                // Reset dirty flag so removal is reflected from actual Spotify queue
-                queueUserOrdered.current = 0;
-                setTimeout(refreshQueue, 500); 
-            }
-            catch { 
-                queueUserOrdered.current = 0;
-                setTimeout(refreshQueue, 800); 
-            }
-        } else { 
-            const c = hostConn(); 
-            if (c?.open) c.send({ type: 'RM_Q', uri, uid }); 
+            // Context tracks can't be removed from Spotify's native queue — the
+            // call no-ops and the next refresh would resurrect them. Blocklist
+            // the uri so refreshes filter it and songchange skips it.
+            removedUris.current.add(uri);
+            const newQueue = queueRef.current.filter(t => t.uri !== uri);
+            setQueue(newQueue);
+            broadcast({ type: 'Q', queue: newQueue });
+            try { await Spicetify.removeFromQueue([{ uri, uid } as any]); } catch {}
+            queueUserOrdered.current = 0;
+            setTimeout(refreshQueue, 500);
+        } else {
+            const c = hostConn();
+            if (c?.open) c.send({ type: 'RM_Q', uri, uid });
         }
-    }, [refreshQueue, hostConn]);
+    }, [refreshQueue, hostConn, broadcast]);
 
     const moveInQueue = useCallback((from: number, to: number) => {
         if (!refs.current.isHost) {
@@ -391,14 +392,7 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         if (reorderDebounce.current) clearTimeout(reorderDebounce.current);
         reorderDebounce.current = setTimeout(async () => {
-            const finalQueue = [...queueRef.current];
-            try {
-                const toRemove = finalQueue.map(t => ({ uri: t.uri, uid: t.uid } as any));
-                if (toRemove.length > 0) await Spicetify.removeFromQueue(toRemove);
-                for (const t of finalQueue) {
-                    try { if (t.uri) await Spicetify.addToQueue([{ uri: t.uri }]); } catch {}
-                }
-            } catch {}
+            await rewriteNativeQueue([...queueRef.current]);
             queueUserOrdered.current = Date.now();
         }, 800);
     }, [broadcast, hostConn]);
@@ -553,6 +547,7 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         seekTimers.current = [];
         cmdThrottle.current.clear();
         pendingQueueRestore.current = [];
+        removedUris.current.clear();
     }, []);
 
 
@@ -837,6 +832,14 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             songDebounce.current = setTimeout(() => {
                 const uri = Spicetify.Player.data?.item?.uri;
                 if (refs.current.isHost) {
+                    // A context track "removed" from the Jam queue can't be removed
+                    // natively, so Spotify may still reach it — skip it once. Explicit
+                    // plays (targetUri already set to it) are respected.
+                    if (uri && uri !== refs.current.targetUri && removedUris.current.has(uri)) {
+                        removedUris.current.delete(uri);
+                        playNextInJamQueue();
+                        return;
+                    }
                     const t = getTrack(); if (t) setNowPlaying(t);
                     refs.current.targetUri = uri || null;
                     const hostPaused = !Spicetify.Player.isPlaying();
@@ -845,13 +848,7 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         const restore = pendingQueueRestore.current;
                         pendingQueueRestore.current = [];
                         (async () => {
-                            // Remove native-queue copies first so re-adding doesn't duplicate them
-                            try {
-                                await Spicetify.removeFromQueue(restore.filter(t => t.uri).map(t => ({ uri: t.uri, uid: t.uid } as any)));
-                            } catch {}
-                            for (const tr of restore) {
-                                if (tr.uri) { try { await Spicetify.addToQueue([{ uri: tr.uri }]); } catch {} }
-                            }
+                            await rewriteNativeQueue(restore);
                             // Song changed: reset dirty flag so fresh queue is fetched
                             queueUserOrdered.current = 0;
                             setTimeout(refreshQueue, 1000);
@@ -960,7 +957,7 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             if (driftI) clearInterval(driftI); 
             try { ctxMenuItem.current?.deregister(); } catch {} 
         };
-    }, [connected, isHost, broadcast, refreshQueue, addToQueue, hostConn]);
+    }, [connected, isHost, broadcast, refreshQueue, addToQueue, hostConn, playNextInJamQueue]);
 
     useEffect(() => {
         const hash = window.location.hash.slice(1);
