@@ -393,6 +393,15 @@ const JamMenu: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                                         )}
                                     </div>
                                 </div>
+                                {t.addedBy && (
+                                    <div className="jam-q-added-by" title={`Added by ${t.addedBy.name}`}>
+                                        {t.addedBy.image ? (
+                                            <img src={t.addedBy.image} alt={t.addedBy.name} />
+                                        ) : (
+                                            <span>{t.addedBy.name.charAt(0).toUpperCase()}</span>
+                                        )}
+                                    </div>
+                                )}
                                 {canEdit && (
                                     <div className="jam-q-btns">
                                         <button className="jam-q-btn green" title="Play now" onClick={() => j.jumpToTrack(t.uri!)}>{I.playItem}</button>
