@@ -350,7 +350,19 @@ const JamMenu: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                 {/* ── QUEUE ── */}
                 {j.queue.length > 0 && (
                     <div className="jam-section-card">
-                        <div className="jam-section-title">{I.queue} Up Next · {j.queue.length}</div>
+                        <div className="jam-section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span>{I.queue} Up Next · {j.queue.length}</span>
+                            {canEdit && (
+                                <button 
+                                    className="jam-q-btn red" 
+                                    title="Clear Queue" 
+                                    onClick={() => j.clearQueue()}
+                                    style={{ fontSize: '10px', padding: '2px 6px', width: 'auto', height: 'auto', borderRadius: '4px' }}
+                                >
+                                    Clear
+                                </button>
+                            )}
+                        </div>
                         {j.queue.map((t, i) => (
                             <div
                                 key={`${t.uri}-${i}`}
