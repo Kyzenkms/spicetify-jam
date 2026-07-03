@@ -217,13 +217,15 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         userPromise.current = fetchUserAsync();
         userPromise.current.then(u => { cachedUser.current = u; });
 
+        const CURRENT_VERSION = '1.2.2';
+
         const checkUpdate = async () => {
             try {
                 const res = await fetch('https://raw.githubusercontent.com/Kyzenkms/spicetify-jam/main/manifest.json');
                 const data = await res.json();
-                if (data.version && data.version !== '1.1.0') {
+                if (data.version && data.version !== CURRENT_VERSION) {
                     setUpdateAvailable(true);
-                    console.log('[Spicetify Jam] Update available:', data.version);
+                    console.log(`[Spicetify Jam] Update available: ${data.version} (installed: ${CURRENT_VERSION})`);
                 }
             } catch (e) {
                 console.warn('[Spicetify Jam] Failed to check for updates');
