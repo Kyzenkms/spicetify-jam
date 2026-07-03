@@ -152,7 +152,7 @@ const JamMenu: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                         <div className="jam-error" style={{ background: 'rgba(29,185,84,0.08)', borderColor: 'rgba(29,185,84,0.2)', color: '#1db954', cursor: 'pointer' }}
                             onClick={() => window.open('https://github.com/Kyzenkms/spicetify-jam', '_blank')}>
                             <span>✨</span>
-                            <span style={{ fontSize: '12px', fontWeight: 700 }}>Update Available — click to view</span>
+                            <span style={{ fontSize: '12px', fontWeight: 700 }}>✨ Update Available — tap to update app</span>
                         </div>
                     )}
                     <div className="jam-hero">
@@ -166,6 +166,9 @@ const JamMenu: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                         onChange={e => setJoinInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && j.joinJam(joinInput)} spellCheck={false}/>
                     <button className="jam-btn outline full" style={{marginTop:4}} onClick={() => j.joinJam(joinInput)}>Join Session</button>
                     {j.error && <div className="jam-error">{I.warn} {j.error}</div>}
+                    <div style={{ textAlign: 'center', marginTop: 8, fontSize: 11, color: 'rgba(255,255,255,0.25)' }}>
+                        Enjoying Jam? <a href="https://github.com/Kyzenkms/spicetify-jam" target="_blank" style={{ color: '#1db954', textDecoration: 'none' }}>⭐ Star us on GitHub</a>
+                    </div>
                 </div>
             </div>
         );
@@ -199,7 +202,7 @@ const JamMenu: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                     <div className="jam-error" style={{ background: 'rgba(29,185,84,0.08)', borderColor: 'rgba(29,185,84,0.2)', color: '#1db954', cursor: 'pointer' }}
                         onClick={() => window.open('https://github.com/Kyzenkms/spicetify-jam', '_blank')}>
                         <span>✨</span>
-                        <span style={{ fontSize: '12px', fontWeight: 700 }}>Update Available — click to view</span>
+                        <span style={{ fontSize: '12px', fontWeight: 700 }}>✨ Update Available — tap to update app</span>
                     </div>
                 )}
 
