@@ -78,7 +78,8 @@ Already have Spicetify Jam installed? Run these instead — no need to delete th
 
 ```powershell
 cd spicetify-jam
-git pull
+git fetch origin
+git reset --hard origin/main
 npm install
 npm run build
 spicetify apply
@@ -88,7 +89,8 @@ spicetify apply
 
 ```bash
 cd spicetify-jam
-git pull
+git fetch origin
+git reset --hard origin/main
 npm install
 npm run build
 spicetify apply
