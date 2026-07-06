@@ -94,7 +94,9 @@ npm run build
 spicetify apply
 ```
 
-> 💡 **Don't see the "✨ Update Available" banner?** It only shows up when the installed build is older than the latest GitHub release. If you just want to be safe, run the commands above to pull and rebuild.
+> 💡 **The "✨ Update Available" banner only appears when your installed extension is older than the version on GitHub.**
+> If you already ran the update commands above, the banner should be gone because you are now up to date.
+> If you want to test the banner, keep an older installed build, then compare it against a newer version published on GitHub.
 
 ---
 
