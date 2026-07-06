@@ -188,7 +188,7 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const memberRegistry = useRef<Map<string, {name: string, image: string}>>(new Map());
     const cachedUser = useRef<{ name: string; image: string }>({ name: 'Listener', image: '' });
     const userPromise = useRef<Promise<{ name: string; image: string }> | null>(null);
-    const refs = useRef({ isHost: false, connected: false, guestControls: false, jamId: '', targetUri: null as string | null, ignoreSync: false, isPlaying: false, forcingPause: false, lastProgress: 0, lastDuration: 0, remotePlayTs: 0 });
+    const refs = useRef({ isHost: false, connected: false, guestControls: false, jamId: '', targetUri: null as string | null, ignoreSync: false, isPlaying: false, forcingPause: false, lastProgress: 0, lastDuration: 0, remotePlayTs: 0, lastSyncRequestTs: 0, lastSyncAppliedTs: 0 });
     const cmdThrottle = useRef<Map<string, number>>(new Map());
     const lastHostMsg = useRef(0);
     const reconnectAttempt = useRef(0);
@@ -217,7 +217,7 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         userPromise.current = fetchUserAsync();
         userPromise.current.then(u => { cachedUser.current = u; });
 
-        const CURRENT_VERSION = '1.2.2';
+        const CURRENT_VERSION = '1.2.3';
 
         const checkUpdate = async () => {
             try {
@@ -291,7 +291,14 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 }
                 try {
                     const localPlaying = Spicetify.Player.isPlaying();
-                    if (localPlaying !== refs.current.isPlaying && !refs.current.isHost) {
+                    const now = Date.now();
+                    if (
+                        localPlaying !== refs.current.isPlaying &&
+                        !refs.current.isHost &&
+                        now - refs.current.remotePlayTs > 2500 &&
+                        now - refs.current.lastSyncRequestTs > 2500
+                    ) {
+                        refs.current.lastSyncRequestTs = now;
                         const c = hostConn(); if (c?.open) c.send({ type: 'SYNC' });
                     }
                 } catch {}
@@ -630,6 +637,7 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 if (!r.isHost) {
                     const curUri = Spicetify.Player.data?.item?.uri;
                     const trackChanged = curUri !== d.uri;
+                    const now = Date.now();
                     r.targetUri = d.uri;
                     if (trackChanged) setProgress(0);
                     if (d.paused) {
@@ -637,7 +645,8 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         if (trackChanged) {
                             // Different track: load it then immediately pause
                             r.ignoreSync = true;
-                            r.remotePlayTs = Date.now();
+                            r.remotePlayTs = now;
+                            r.lastSyncAppliedTs = now;
                             setIsPlaying(false);
                             Spicetify.Player.playUri(d.uri).then(() => {
                                 setTimeout(() => { Spicetify.Player.pause(); r.ignoreSync = false; }, 150);
@@ -645,20 +654,32 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         } else {
                             Spicetify.Player.pause();
                             setIsPlaying(false);
+                            r.lastSyncAppliedTs = now;
                         }
                     } else if (!trackChanged) {
                         // Don't undo our own force-pause when the host's SYNC reply (PLAY{paused:false}) bounces back
                         if (refs.current.forcingPause) break;
-                        const delay = Date.now() - d.ts;
-                        Spicetify.Player.seek(d.pos + delay);
+                        const hostPos = Number(d.pos || 0) + (now - d.ts);
+                        let localPos = 0;
+                        try { localPos = Spicetify.Player.getProgress(); } catch {}
+                        const drift = Math.abs(localPos - hostPos);
+                        r.remotePlayTs = now;
                         setIsPlaying(true);
-                        r.remotePlayTs = Date.now();
-                        if (!Spicetify.Player.isPlaying()) Spicetify.Player.play();
+                        // Only hard-correct meaningful drift; tiny differences cause the 14s glitch loop
+                        if (drift > 1500) {
+                            Spicetify.Player.seek(hostPos);
+                            r.lastSyncAppliedTs = now;
+                        }
+                        if (!Spicetify.Player.isPlaying()) {
+                            Spicetify.Player.play();
+                            r.lastSyncAppliedTs = now;
+                        }
                     } else {
                         r.ignoreSync = true;
                         setIsPlaying(true);
-                        r.remotePlayTs = Date.now();
-                        const playTs = Date.now();
+                        r.remotePlayTs = now;
+                        r.lastSyncAppliedTs = now;
+                        const playTs = now;
                         Spicetify.Player.playUri(d.uri).then(() => {
                             const delay = Date.now() - playTs + (Date.now() - d.ts);
                             const seekMs = d.pos + (Date.now() - d.ts);
@@ -679,7 +700,23 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             case 'Q': setQueue(d.queue); break;
             case 'PING': conn.send({ type: 'PONG', ts: d.ts }); break;
             case 'PONG': setPing(Date.now() - d.ts); break;
-            case 'SYNC': if (r.isHost && Spicetify.Player.data?.item) conn.send({ type: 'PLAY', uri: Spicetify.Player.data.item.uri, pos: Spicetify.Player.getProgress(), ts: Date.now(), np: getTrack(), paused: !Spicetify.Player.isPlaying() }); break;
+            case 'SYNC':
+                if (r.isHost && Spicetify.Player.data?.item) {
+                    const currentUri = Spicetify.Player.data.item.uri;
+                    const currentPos = Spicetify.Player.getProgress();
+                    const currentDur = Spicetify.Player.getDuration();
+                    // Lightweight same-track sync; avoid replaying/seeking guests unless truly needed
+                    conn.send({
+                        type: 'PLAY',
+                        uri: currentUri,
+                        pos: currentPos,
+                        ts: Date.now(),
+                        np: getTrack(),
+                        paused: !Spicetify.Player.isPlaying(),
+                        dur: currentDur,
+                    });
+                }
+                break;
         }
     }, [broadcast, leaveJam, addToQueue, removeFromQueue, buildMembers, moveInQueue, playNextInJamQueue]);
 
@@ -872,7 +909,11 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                             refs.current.lastDuration - refs.current.lastProgress < 3000;
                         if (nearEnd) {
                             const c = hostConn();
-                            if (c?.open) c.send({ type: 'SYNC' });
+                            const now = Date.now();
+                            if (c?.open && now - refs.current.lastSyncRequestTs > 2500) {
+                                refs.current.lastSyncRequestTs = now;
+                                c.send({ type: 'SYNC' });
+                            }
                         } else if (refs.current.guestControls) {
                             const c = hostConn();
                             if (c?.open) c.send({ type: 'CMD', a: 'playuri', uri });
@@ -906,7 +947,9 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     // Playback that we just started ourselves in response to a host
                     // PLAY message — not the user pressing play. Accept it silently,
                     // otherwise guests without controls force-pause every host play.
-                    if (Date.now() - refs.current.remotePlayTs < 2000) return;
+                    const now = Date.now();
+                    if (now - refs.current.remotePlayTs < 2000) return;
+                    if (now - refs.current.lastSyncAppliedTs < 2000) return;
                     if (!refs.current.guestControls) {
                         // Guard against re-entrant pause loop
                         if (refs.current.forcingPause) return;
@@ -915,10 +958,16 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         Spicetify.showNotification('🔒 Only the host can resume playback');
                         setTimeout(() => { refs.current.forcingPause = false; }, 500);
                         const c = hostConn();
-                        if (c?.open) c.send({ type: 'SYNC' });
+                        if (c?.open && now - refs.current.lastSyncRequestTs > 2500) {
+                            refs.current.lastSyncRequestTs = now;
+                            c.send({ type: 'SYNC' });
+                        }
                     } else {
                         const c = hostConn();
-                        if (c?.open) c.send({ type: 'SYNC' });
+                        if (c?.open && now - refs.current.lastSyncRequestTs > 2500) {
+                            refs.current.lastSyncRequestTs = now;
+                            c.send({ type: 'SYNC' });
+                        }
                         if (refs.current.targetUri) {
                             const curUri = Spicetify.Player.data?.item?.uri;
                             if (curUri && curUri !== refs.current.targetUri) {
@@ -939,8 +988,16 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         let driftI: ReturnType<typeof setInterval> | null = null;
         qi = refs.current.isHost ? setInterval(refreshQueue, 5000) : null;
         driftI = !refs.current.isHost ? setInterval(() => { 
+            const now = Date.now();
+            // Only request sync occasionally and only if we haven't just applied one
+            if (now - refs.current.remotePlayTs < 5000) return;
+            if (now - refs.current.lastSyncAppliedTs < 5000) return;
+            if (now - refs.current.lastSyncRequestTs < 10000) return;
             const c = hostConn(); 
-            if (c?.open) c.send({ type: 'SYNC' }); 
+            if (c?.open) {
+                refs.current.lastSyncRequestTs = now;
+                c.send({ type: 'SYNC' }); 
+            }
         }, 15000) : null;
         try {
             if (ctxMenuItem.current) { try { ctxMenuItem.current.deregister(); } catch {} }

@@ -5,7 +5,7 @@
   <p><b>Real-time social listening sessions for Spotify (via Spicetify)</b></p>
   
   <p>
-    <img src="https://img.shields.io/badge/version-1.0.1-1db954?style=for-the-badge&logo=spotify" alt="Version 1.0.1" />
+    <img src="https://img.shields.io/badge/version-1.2.3-1db954?style=for-the-badge&logo=spotify" alt="Version 1.2.3" />
     <img src="https://img.shields.io/badge/spicetify-custom%20app-1db954?style=for-the-badge" alt="Spicetify App" />
     <img src="https://img.shields.io/badge/license-MIT-blue?style=for-the-badge" alt="License" />
   </p>
@@ -14,6 +14,8 @@
 <br />
 
 **Spicetify Jam** lets you listen together with friends in real-time, syncing playback and sharing a fully collaborative queue right inside Spotify.
+
+Desktop only: this is a Spicetify extension for the Spotify desktop client on Windows, macOS, and Linux. It does not run on the Spotify mobile app.
 
 ## ✨ Features
 
