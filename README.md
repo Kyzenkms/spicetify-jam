@@ -32,20 +32,31 @@ Desktop only: this is a Spicetify extension for the Spotify desktop client on Wi
 
 ## 📦 Installation
 
-### Prerequisites
+### Quick Install (Recommended)
 
-Before installing, make sure you have the following:
+Just run the one-liner for your OS. It handles everything — git clone, npm install, build, and Spicetify config.
 
-- **[Git](https://git-scm.com/downloads)** — to clone the repo
-- **[Node.js](https://nodejs.org/) (v18+)** — `npm` is bundled with it
-- **[Spicetify](https://spicetify.app/)** — the Spotify mod framework
+**Windows (PowerShell):**
+```powershell
+irm https://raw.githubusercontent.com/Kyzenkms/spicetify-jam/main/install.ps1 | iex
+```
 
-> **Windows users:** After installing Git and Node.js, restart PowerShell so the commands are recognized.
+**Linux / macOS:**
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/Kyzenkms/spicetify-jam/main/install.sh)
+```
 
-### Windows
+That's it. Restart Spotify and look for the 🎵 icon in the player bar.
 
-Open PowerShell and run:
+---
 
+### Manual Install (Developers)
+
+If you prefer to do it yourself or want to contribute code:
+
+**Prerequisites:** [Git](https://git-scm.com/downloads), [Node.js](https://nodejs.org/) (v18+), [Spicetify](https://spicetify.app/)
+
+**Windows:**
 ```powershell
 git clone https://github.com/Kyzenkms/spicetify-jam
 cd spicetify-jam
@@ -55,10 +66,7 @@ spicetify config extensions spicetify-jam.js
 spicetify apply
 ```
 
-### Linux / macOS
-
-Open your Terminal and run:
-
+**Linux / macOS:**
 ```bash
 git clone https://github.com/Kyzenkms/spicetify-jam
 cd spicetify-jam
@@ -72,33 +80,27 @@ spicetify apply
 
 ## 🔄 Updating
 
-Already have Spicetify Jam installed? Run these instead — no need to delete the folder first.
+Just run the same install command again — it detects if you already have it and updates in place.
 
-### Windows (PowerShell)
-
+**Windows:**
 ```powershell
-cd spicetify-jam
-git fetch origin
-git reset --hard origin/main
-npm install
-npm run build
-spicetify apply
+irm https://raw.githubusercontent.com/Kyzenkms/spicetify-jam/main/install.ps1 | iex
 ```
 
-### Linux / macOS
-
+**Linux / macOS:**
 ```bash
-cd spicetify-jam
+bash <(curl -fsSL https://raw.githubusercontent.com/Kyzenkms/spicetify-jam/main/install.sh)
+```
+
+Or update manually:
+```bash
+cd ~/.spicetify-jam
 git fetch origin
 git reset --hard origin/main
 npm install
 npm run build
 spicetify apply
 ```
-
-> 💡 **The "✨ Update Available" banner only appears when your installed extension is older than the version on GitHub.**
-> If you already ran the update commands above, the banner should be gone because you are now up to date.
-> If you want to test the banner, keep an older installed build, then compare it against a newer version published on GitHub.
 
 ---
 
