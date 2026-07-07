@@ -461,8 +461,11 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const play = () => { 
         if (refs.current.isHost) { 
+            // Don't call setIsPlaying here — onPP is the single source of truth.
+            // Calling it eagerly here then letting onPP correct it was the cause
+            // of the play→pause→play UI flicker (Spotify's isPlaying() is still
+            // false at the instant onPP fires right after Player.play()).
             Spicetify.Player.play(); 
-            setIsPlaying(true); 
         } else if (refs.current.guestControls) { 
             const c = hostConn(); 
             if (c?.open) c.send({ type: 'CMD', a: 'play' }); 
@@ -472,7 +475,6 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const pause = () => { 
         if (refs.current.isHost) { 
             Spicetify.Player.pause(); 
-            setIsPlaying(false); 
         } else if (refs.current.guestControls) { 
             const c = hostConn(); 
             if (c?.open) c.send({ type: 'CMD', a: 'pause' }); 
@@ -975,6 +977,11 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }, 300);
         };
         const onPP = () => {
+            // Spotify fires onplaypause *during* the state transition, so
+            // isPlaying() may still return the OLD value at the instant the event
+            // fires. Defer by one microtask so the internal state has settled.
+            // This is the root cause of the play→pause→play UI flicker.
+            Promise.resolve().then(() => {
             const playing = Spicetify.Player.isPlaying();
             setIsPlaying(playing);
             
@@ -1040,6 +1047,7 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     }
                 }
             }
+            }); // end Promise.resolve().then — wait for Spotify's state to settle
         };
         Spicetify.Player.addEventListener('songchange', onSong); 
         Spicetify.Player.addEventListener('onplaypause', onPP);
