@@ -220,16 +220,20 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         userPromise.current = fetchUserAsync();
         userPromise.current.then(u => { cachedUser.current = u; });
 
-        // ⚠️  Keep this in sync with package.json and manifest.json on every version bump.
         const CURRENT_VERSION = '1.3.0';
+        const CURRENT_PATCH = 0; // bump for any code change without a version bump
 
         const checkUpdate = async () => {
             try {
                 const res = await fetch('https://raw.githubusercontent.com/Kyzenkms/spicetify-jam/main/manifest.json');
                 const data = await res.json();
-                if (data.version && data.version !== CURRENT_VERSION) {
+                const versionChanged = data.version && data.version !== CURRENT_VERSION;
+                const patchChanged = data.patch !== undefined && data.patch !== CURRENT_PATCH;
+                if (versionChanged || patchChanged) {
                     setUpdateAvailable(true);
-                    console.log(`[Spicetify Jam] Update available: ${data.version} (installed: ${CURRENT_VERSION})`);
+                    console.log(`[Spicetify Jam] Update: ${data.version}${
+                        patchChanged && !versionChanged ? ' (hotfix ' + data.patch + ')' : ''
+                    }`);
                 }
             } catch (e) {
                 console.warn('[Spicetify Jam] Failed to check for updates');
