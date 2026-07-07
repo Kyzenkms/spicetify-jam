@@ -188,7 +188,7 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const memberRegistry = useRef<Map<string, {name: string, image: string}>>(new Map());
     const cachedUser = useRef<{ name: string; image: string }>({ name: 'Listener', image: '' });
     const userPromise = useRef<Promise<{ name: string; image: string }> | null>(null);
-    const refs = useRef({ isHost: false, connected: false, guestControls: false, jamId: '', targetUri: null as string | null, ignoreSync: false, isPlaying: false, forcingPause: false, lastProgress: 0, lastDuration: 0, remotePlayTs: 0, lastSyncRequestTs: 0, lastSyncAppliedTs: 0 });
+    const refs = useRef({ isHost: false, connected: false, guestControls: false, jamId: '', targetUri: null as string | null, ignoreSync: false, ignoreNextSongChange: false, ignoreNextOnPP: false, isPlaying: false, forcingPause: false, lastProgress: 0, lastDuration: 0, remotePlayTs: 0, lastSyncRequestTs: 0, lastSyncAppliedTs: 0 });
     const cmdThrottle = useRef<Map<string, number>>(new Map());
     const lastHostMsg = useRef(0);
     const reconnectAttempt = useRef(0);
@@ -643,50 +643,64 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     if (d.paused) {
                         // Host is paused — update track info but don't start playing
                         if (trackChanged) {
-                            // Different track: load it then immediately pause
-                            r.ignoreSync = true;
+                            // Different track: load it then immediately pause.
+                            // Suppress the songchange + onplaypause from the programmatic load.
+                            r.ignoreNextSongChange = true;
+                            r.ignoreNextOnPP = true;
                             r.remotePlayTs = now;
                             r.lastSyncAppliedTs = now;
                             setIsPlaying(false);
                             Spicetify.Player.playUri(d.uri).then(() => {
-                                setTimeout(() => { Spicetify.Player.pause(); r.ignoreSync = false; }, 150);
-                            }).catch(() => { r.ignoreSync = false; });
+                                setTimeout(() => { Spicetify.Player.pause(); r.ignoreNextOnPP = false; }, 150);
+                            }).catch(() => { r.ignoreNextSongChange = false; r.ignoreNextOnPP = false; });
                         } else {
                             Spicetify.Player.pause();
                             setIsPlaying(false);
                             r.lastSyncAppliedTs = now;
                         }
                     } else if (!trackChanged) {
-                        // Don't undo our own force-pause when the host's SYNC reply (PLAY{paused:false}) bounces back
-                        if (refs.current.forcingPause) break;
+                        // forcingPause only guards re-entrant onPP events, NOT incoming host commands.
+                        r.forcingPause = false;
                         const hostPos = Number(d.pos || 0) + (now - d.ts);
                         let localPos = 0;
                         try { localPos = Spicetify.Player.getProgress(); } catch {}
                         const drift = Math.abs(localPos - hostPos);
                         r.remotePlayTs = now;
+                        r.lastSyncAppliedTs = now;
                         setIsPlaying(true);
-                        // Only hard-correct meaningful drift; tiny differences cause the 14s glitch loop
                         if (drift > 1500) {
+                            r.ignoreNextOnPP = true;
                             Spicetify.Player.seek(hostPos);
-                            r.lastSyncAppliedTs = now;
                         }
                         if (!Spicetify.Player.isPlaying()) {
+                            r.ignoreNextOnPP = true;
                             Spicetify.Player.play();
-                            r.lastSyncAppliedTs = now;
                         }
                     } else {
-                        r.ignoreSync = true;
+                        // New track, host is playing: load it and seek to host position.
+                        // Use ignoreNextSongChange to suppress the songchange fired by playUri,
+                        // and ignoreNextOnPP to suppress the onplaypause fired by the subsequent seek.
+                        r.ignoreNextSongChange = true;
+                        r.ignoreNextOnPP = true;
                         setIsPlaying(true);
                         r.remotePlayTs = now;
                         r.lastSyncAppliedTs = now;
-                        const playTs = now;
+                        // Capture message timestamp for seek calculation
+                        const msgTs = d.ts;
+                        const msgPos = d.pos;
                         Spicetify.Player.playUri(d.uri).then(() => {
-                            const delay = Date.now() - playTs + (Date.now() - d.ts);
-                            const seekMs = d.pos + (Date.now() - d.ts);
-                            const sid = setTimeout(() => Spicetify.Player.seek(seekMs), Math.max(300, delay));
+                            // Recalculate seekMs at seek time so total elapsed time since
+                            // the host sent the message (including playUri load time) is
+                            // accounted for — avoids the double-counted delay bug.
+                            const sid = setTimeout(() => {
+                                const seekMs = msgPos + (Date.now() - msgTs);
+                                Spicetify.Player.seek(seekMs);
+                                r.lastSyncAppliedTs = Date.now();
+                            }, 400);
                             seekTimers.current.push(sid);
                         }).catch(() => {
-                            r.ignoreSync = false;
+                            r.ignoreNextSongChange = false;
+                            r.ignoreNextOnPP = false;
                         });
                     }
                 }
@@ -898,7 +912,8 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         setTimeout(refreshQueue, 600);
                     }
                 } else {
-                    if (refs.current.ignoreSync) { refs.current.ignoreSync = false; return; }
+                    // Suppress the songchange event fired by a programmatic playUri call
+                    if (refs.current.ignoreNextSongChange) { refs.current.ignoreNextSongChange = false; return; }
                     if (uri && uri !== refs.current.targetUri && refs.current.targetUri) {
                         // Natural end-of-track: guests run slightly ahead of the host,
                         // so their player auto-advances into its own (junk) context
@@ -948,6 +963,9 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     // PLAY message — not the user pressing play. Accept it silently,
                     // otherwise guests without controls force-pause every host play.
                     const now = Date.now();
+                    // Suppress onplaypause fired by our own programmatic seek/play after
+                    // receiving a host PLAY — avoids the SYNC feedback loop.
+                    if (refs.current.ignoreNextOnPP) { refs.current.ignoreNextOnPP = false; return; }
                     if (now - refs.current.remotePlayTs < 2000) return;
                     if (now - refs.current.lastSyncAppliedTs < 2000) return;
                     if (!refs.current.guestControls) {
