@@ -220,7 +220,8 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         userPromise.current = fetchUserAsync();
         userPromise.current.then(u => { cachedUser.current = u; });
 
-        const CURRENT_VERSION = '1.2.3';
+        // ⚠️  Keep this in sync with package.json and manifest.json on every version bump.
+        const CURRENT_VERSION = '1.3.0';
 
         const checkUpdate = async () => {
             try {
