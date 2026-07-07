@@ -923,6 +923,8 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     }
                     const t = getTrack(); if (t) setNowPlaying(t);
                     refs.current.targetUri = uri || null;
+                    // Clear queue attribution for the track that just started playing
+                    if (uri) addedByMap.current.delete(uri);
                     const hostPaused = !Spicetify.Player.isPlaying();
                     broadcast({ type: 'PLAY', uri: uri || '', pos: 0, ts: Date.now(), np: t, paused: hostPaused });
                     if (pendingQueueRestore.current.length > 0) {
