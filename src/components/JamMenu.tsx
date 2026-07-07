@@ -11,6 +11,9 @@ const COLORS = [
     'linear-gradient(135deg,#00c9ff,#92fe9d)',
 ];
 
+// Stable colour per name so the same person always gets the same colour
+const nameColor = (name: string) => COLORS[Math.abs(name.split('').reduce((a, c) => (a * 31 + c.charCodeAt(0)) | 0, 0)) % COLORS.length];
+
 const I = {
     minimize: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>,
     expand:   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>,
@@ -32,6 +35,9 @@ const I = {
     link:     <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M4.715 6.542L3.343 7.914a3 3 0 104.243 4.243l1.828-1.829A3 3 0 008.586 5.5L8 6.086a1 1 0 00-.154.199 2 2 0 01.861 3.337L6.88 11.45a2 2 0 11-2.83-2.827l.793-.793a4.018 4.018 0 01-.128-1.287z"/></svg>,
     playItem: <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>,
     drag:     <svg width="10" height="13" viewBox="0 0 12 18" fill="rgba(255,255,255,0.2)"><circle cx="4" cy="3" r="1.8"/><circle cx="9" cy="3" r="1.8"/><circle cx="4" cy="9" r="1.8"/><circle cx="9" cy="9" r="1.8"/><circle cx="4" cy="15" r="1.8"/><circle cx="9" cy="15" r="1.8"/></svg>,
+    // Chevron for collapsible sections
+    chevronDown: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>,
+    chevronUp:   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="18 15 12 9 6 15"/></svg>,
 };
 
 const fmtTime = (ms: number) => {
@@ -76,7 +82,7 @@ export const JamMiniWidget: React.FC<{ onExpand: () => void }> = ({ onExpand }) 
                         </div>
                     )}
                     {[...visibleMembers].reverse().map((m, i) => (
-                        <div key={m.id} className="jam-mini-avatar" style={{ background: COLORS[i % COLORS.length] }}>
+                        <div key={m.id} className="jam-mini-avatar" style={{ background: nameColor(m.name) }}>
                             {m.image
                                 ? <img src={m.image} alt="" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}/>
                                 : safeInitial(m.name)
@@ -98,6 +104,20 @@ export const JamMiniWidget: React.FC<{ onExpand: () => void }> = ({ onExpand }) 
     );
 };
 
+// ── Mini "added by" avatar shown inside queue rows ────
+const AddedByAvatar: React.FC<{ name: string; image: string }> = ({ name, image }) => (
+    <div
+        className="jam-added-by-avatar"
+        title={`Added by ${name}`}
+        style={{ background: nameColor(name) }}
+    >
+        {image
+            ? <img src={image} alt="" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}/>
+            : safeInitial(name)
+        }
+    </div>
+);
+
 // ── Main Panel ───────────────────────────────
 const JamMenu: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     const j = useJam();
@@ -107,6 +127,8 @@ const JamMenu: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     const [showQr, setShowQr] = useState(false);
     const [dragIdx, setDragIdx] = useState<number | null>(null);
     const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+    // Listeners panel is open by default; user can collapse it
+    const [listenersOpen, setListenersOpen] = useState(true);
 
     useEffect(() => {
         if (j.jamId) {
@@ -247,6 +269,44 @@ const JamMenu: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                     </div>
                 )}
 
+                {/* ── LISTENERS — always at the top, collapsible ── */}
+                <div className="jam-section-card">
+                    {/* Clickable header toggles open/closed */}
+                    <button
+                        className="jam-section-title jam-collapsible-header"
+                        onClick={() => setListenersOpen(v => !v)}
+                        aria-expanded={listenersOpen}
+                    >
+                        <span className="jam-section-title-inner">
+                            {I.people} Listeners · {j.members.length}
+                        </span>
+                        <span className="jam-chevron">
+                            {listenersOpen ? I.chevronUp : I.chevronDown}
+                        </span>
+                    </button>
+
+                    {listenersOpen && (
+                        <div className="jam-listeners-body">
+                            {j.members.map((m, i) => (
+                                <div key={m.id + i} className="jam-member-row">
+                                    <div className="jam-avatar" style={{ background: nameColor(m.name) }}>
+                                        {m.image
+                                            ? <img src={m.image} alt="" onError={e => { (e.target as HTMLImageElement).style.display='none'; }}/>
+                                            : safeInitial(m.name)}
+                                    </div>
+                                    <div className="jam-member-info">
+                                        <div className="jam-member-name">{m.name || 'Listener'}</div>
+                                        <div className="jam-member-role">{m.isHost ? '● Host' : '○ Listener'}</div>
+                                    </div>
+                                    {j.isHost && !m.isHost && (
+                                        <button className="jam-icon-btn red" onClick={() => j.kickMember(m.id)}>{I.kick}</button>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
                 {j.isHost && (
                     <div className="jam-section-card">
                         <div className="jam-section-title">{I.settings} Session Settings</div>
@@ -287,6 +347,7 @@ const JamMenu: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                     </div>
                 )}
 
+                {/* ── QUEUE ── */}
                 {j.queue.length > 0 && (
                     <div className="jam-section-card">
                         <div className="jam-section-title">{I.queue} Up Next · {j.queue.length}</div>
@@ -309,7 +370,16 @@ const JamMenu: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                                 </div>
                                 <div className="jam-q-meta">
                                     <div className="jam-q-title">{t.title}</div>
-                                    <div className="jam-q-artist">{t.artist}</div>
+                                    <div className="jam-q-artist-row">
+                                        <span className="jam-q-artist">{t.artist}</span>
+                                        {/* Mini avatar showing who added this track */}
+                                        {t.addedBy && (
+                                            <AddedByAvatar
+                                                name={t.addedBy.name}
+                                                image={t.addedBy.image}
+                                            />
+                                        )}
+                                    </div>
                                 </div>
                                 {canEdit && (
                                     <div className="jam-q-btns">
@@ -321,26 +391,6 @@ const JamMenu: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                         ))}
                     </div>
                 )}
-
-                <div className="jam-section-card">
-                    <div className="jam-section-title">{I.people} Listeners · {j.members.length}</div>
-                    {j.members.map((m, i) => (
-                        <div key={m.id + i} className="jam-member-row">
-                            <div className="jam-avatar" style={{ background: COLORS[i % COLORS.length] }}>
-                                {m.image
-                                    ? <img src={m.image} alt="" onError={e => { (e.target as HTMLImageElement).style.display='none'; }}/>
-                                    : safeInitial(m.name)}
-                            </div>
-                            <div className="jam-member-info">
-                                <div className="jam-member-name">{m.name || 'Listener'}</div>
-                                <div className="jam-member-role">{m.isHost ? '● Host' : '○ Listener'}</div>
-                            </div>
-                            {j.isHost && !m.isHost && (
-                                <button className="jam-icon-btn red" onClick={() => j.kickMember(m.id)}>{I.kick}</button>
-                            )}
-                        </div>
-                    ))}
-                </div>
             </div>
 
             <div className="jam-footer">

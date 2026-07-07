@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import Peer, { DataConnection } from 'peerjs';
 
-interface TrackInfo { title: string; artist: string; artUrl: string; uri?: string; uid?: string; }
+interface TrackInfo { title: string; artist: string; artUrl: string; uri?: string; uid?: string; addedBy?: { name: string; image: string }; }
 interface Member { id: string; name: string; isHost?: boolean; image?: string; }
 interface JamState {
     isHost: boolean; jamId: string; members: Member[]; connected: boolean; error: string | null;
@@ -189,6 +189,9 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const cachedUser = useRef<{ name: string; image: string }>({ name: 'Listener', image: '' });
     const userPromise = useRef<Promise<{ name: string; image: string }> | null>(null);
     const refs = useRef({ isHost: false, connected: false, guestControls: false, jamId: '', targetUri: null as string | null, ignoreNextSongChange: false, ignoreNextOnPP: false, isPlaying: false, forcingPause: false, lastProgress: 0, lastDuration: 0, remotePlayTs: 0, lastSyncRequestTs: 0, lastSyncAppliedTs: 0 });
+    // Tracks who added each URI to the queue (keyed by uri). Populated when the
+    // host receives an ADD_Q from a guest; merged into the queue on every refresh.
+    const addedByMap = useRef<Map<string, { name: string; image: string }>>(new Map());
     const cmdThrottle = useRef<Map<string, number>>(new Map());
     const lastHostMsg = useRef(0);
     const reconnectAttempt = useRef(0);
@@ -332,9 +335,14 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const spotifyQueue = (await getQueue()).filter(t => !removedUris.current.has(t.uri!));
         const currentQueue = queueRef.current;
 
-        if (JSON.stringify(spotifyQueue.map(t => t.uri)) !== JSON.stringify(currentQueue.map(t => t.uri))) {
-            setQueue(spotifyQueue);
-            broadcast({ type: 'Q', queue: spotifyQueue });
+        // Merge "added by" attribution from guests back into the refreshed queue
+        const queueWithAttr = spotifyQueue.map(t => {
+            const by = t.uri ? addedByMap.current.get(t.uri) : undefined;
+            return by ? { ...t, addedBy: by } : t;
+        });
+        if (JSON.stringify(queueWithAttr.map(t => t.uri)) !== JSON.stringify(currentQueue.map(t => t.uri))) {
+            setQueue(queueWithAttr);
+            broadcast({ type: 'Q', queue: queueWithAttr });
         }
     }, [broadcast]);
 
@@ -355,7 +363,12 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } else { 
             const c = hostConn(); 
             if (c?.open) { 
-                uriArray.forEach(uri => c.send({ type: 'ADD_Q', uri }));
+                uriArray.forEach(uri => c.send({
+                    type: 'ADD_Q',
+                    uri,
+                    // Send our identity so the host can show who added this track
+                    addedBy: { name: cachedUser.current.name, image: cachedUser.current.image }
+                }));
                 Spicetify.showNotification(uriArray.length > 1 ? `Requested ${uriArray.length} tracks!` : 'Requested!'); 
             } 
         }
@@ -367,6 +380,7 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             // call no-ops and the next refresh would resurrect them. Blocklist
             // the uri so refreshes filter it and songchange skips it.
             removedUris.current.add(uri);
+            addedByMap.current.delete(uri); // clear attribution when removed
             const newQueue = queueRef.current.filter(t => t.uri !== uri);
             setQueue(newQueue);
             broadcast({ type: 'Q', queue: newQueue });
@@ -709,7 +723,18 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             case 'PAUSE': if (!r.isHost) { Spicetify.Player.pause(); setIsPlaying(false); } break;
             case 'SEEK': if (!r.isHost) { const delay = Date.now() - d.ts; Spicetify.Player.seek(d.pos + delay); } break;
             case 'PS': if (!r.isHost) { setIsPlaying(d.p); if (d.pos !== undefined) setProgress(d.pos); if (d.dur !== undefined) setDuration(d.dur); } break;
-            case 'ADD_Q': if (r.isHost) addToQueue(d.uri); break;
+            case 'ADD_Q':
+                if (r.isHost) {
+                    // Store who added this track before handing off to addToQueue
+                    if (d.addedBy && d.uri) {
+                        addedByMap.current.set(d.uri, {
+                            name: d.addedBy.name || memberRegistry.current.get(conn.peer)?.name || 'Guest',
+                            image: d.addedBy.image || memberRegistry.current.get(conn.peer)?.image || ''
+                        });
+                    }
+                    addToQueue(d.uri);
+                }
+                break;
             case 'RM_Q': if (r.isHost) removeFromQueue(d.uri, d.uid); break;
             case 'Q': setQueue(d.queue); break;
             case 'PING': conn.send({ type: 'PONG', ts: d.ts }); break;

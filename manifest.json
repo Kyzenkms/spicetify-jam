@@ -1,7 +1,7 @@
 {
   "name": "Spicetify Jam",
-  "version": "1.2.3",
-  "description": "Real-time social listening sessions. Sync Spotify playback with friends via P2P \u2014 shared queue, live avatars, and instant sync.",
+  "version": "1.3.0",
+  "description": "Real-time social listening sessions. Sync Spotify playback with friends via P2P \u2014 shared queue with per-user attribution, collapsible listeners panel, live avatars, and instant sync.",
   "preview": "assets/logo.png",
   "readme": "README.md",
   "authors": [
