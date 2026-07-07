@@ -989,7 +989,7 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             if (refs.current.isHost) {
                 const pos = Spicetify.Player.getProgress();
                 const dur = Spicetify.Player.getDuration();
-                broadcast({ type: 'PS', p: playing, pos, dur });
+                broadcast({ type: 'PS', p: playing, pos, dur, ts: Date.now() });
                 if (playing) {
                     broadcast({ type: 'PLAY', uri: Spicetify.Player.data?.item?.uri || refs.current.targetUri || '', pos, ts: Date.now(), np: getTrack() });
                 } else {

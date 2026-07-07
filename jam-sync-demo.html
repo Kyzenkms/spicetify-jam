@@ -783,12 +783,32 @@ function onData(d) {
 
     case 'PS':
       vPlayer.playing = d.p;
+      if (d.dur !== undefined && d.dur > 0) duration = d.dur / 1000;
       if (d.pos !== undefined) {
-        vPlayer.pos = d.pos / 1000;
-        vPlayer.hostPosRef = vPlayer.pos;
-        vPlayer.hostTsRef = now;
+        // Latency-correct the position using d.ts if available (PS now includes ts)
+        const latency = d.ts ? (now - d.ts) : 0;
+        const correctedPos = d.pos / 1000 + latency / 1000;
+
+        if (!d.p) {
+          // Host is paused — set directly, tick is stopped
+          vPlayer.pos = correctedPos;
+          vPlayer.hostPosRef = correctedPos;
+          vPlayer.hostTsRef = now;
+          logGuest(`⏸ PS paused → ${fmt(correctedPos)}`);
+        } else {
+          // Host is playing — only re-anchor if we've drifted more than 1s.
+          // Small PS updates are ignored so the tick can interpolate smoothly
+          // without the backward-step glitch caused by resetting the anchor.
+          const drift = Math.abs(vPlayer.pos - correctedPos);
+          if (drift > 1.0) {
+            vPlayer.hostPosRef = correctedPos;
+            vPlayer.hostTsRef = now;
+            vPlayer.pos = correctedPos;
+            logGuest(`🔄 PS re-anchor (drift ${(drift*1000).toFixed(0)}ms) → ${fmt(correctedPos)}`);
+          }
+          // drift ≤ 1s: tick keeps interpolating — no visible step
+        }
       }
-      if (d.dur !== undefined) duration = d.dur / 1000;
       updatePlayBtn(d.p);
       updateStatusDisp(d.p ? 'Playing ▶' : 'Paused ⏸', d.p ? 'good' : 'warn');
       break;
