@@ -188,7 +188,7 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const memberRegistry = useRef<Map<string, {name: string, image: string}>>(new Map());
     const cachedUser = useRef<{ name: string; image: string }>({ name: 'Listener', image: '' });
     const userPromise = useRef<Promise<{ name: string; image: string }> | null>(null);
-    const refs = useRef({ isHost: false, connected: false, guestControls: false, jamId: '', targetUri: null as string | null, ignoreSync: false, ignoreNextSongChange: false, ignoreNextOnPP: false, isPlaying: false, forcingPause: false, lastProgress: 0, lastDuration: 0, remotePlayTs: 0, lastSyncRequestTs: 0, lastSyncAppliedTs: 0 });
+    const refs = useRef({ isHost: false, connected: false, guestControls: false, jamId: '', targetUri: null as string | null, ignoreNextSongChange: false, ignoreNextOnPP: false, isPlaying: false, forcingPause: false, lastProgress: 0, lastDuration: 0, remotePlayTs: 0, lastSyncRequestTs: 0, lastSyncAppliedTs: 0 });
     const cmdThrottle = useRef<Map<string, number>>(new Map());
     const lastHostMsg = useRef(0);
     const reconnectAttempt = useRef(0);
@@ -933,10 +933,15 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                             const c = hostConn();
                             if (c?.open) c.send({ type: 'CMD', a: 'playuri', uri });
                         } else {
-                            refs.current.ignoreSync = true;
+                            // Guest drifted out of the Jam track (e.g. manually navigated).
+                            // Suppress the songchange that playUri will fire so we don't loop.
+                            refs.current.ignoreNextSongChange = true;
+                            refs.current.ignoreNextOnPP = true;
                             refs.current.remotePlayTs = Date.now();
+                            refs.current.lastSyncAppliedTs = Date.now();
                             Spicetify.Player.playUri(refs.current.targetUri).catch(() => {
-                                refs.current.ignoreSync = false;
+                                refs.current.ignoreNextSongChange = false;
+                                refs.current.ignoreNextOnPP = false;
                             });
                             Spicetify.showNotification('🔒 Locked to Jam');
                         }
@@ -972,29 +977,40 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         // Guard against re-entrant pause loop
                         if (refs.current.forcingPause) return;
                         refs.current.forcingPause = true;
+                        refs.current.ignoreNextOnPP = true; // suppress the pause event we're about to fire
                         Spicetify.Player.pause();
                         Spicetify.showNotification('🔒 Only the host can resume playback');
                         setTimeout(() => { refs.current.forcingPause = false; }, 500);
-                        const c = hostConn();
-                        if (c?.open && now - refs.current.lastSyncRequestTs > 2500) {
-                            refs.current.lastSyncRequestTs = now;
-                            c.send({ type: 'SYNC' });
-                        }
+                        // Don't send SYNC here — it would cause host to reply PLAY{paused:false}
+                        // which would make us try to play again → another onPP → loop.
+                        // The drift interval (every 15s) will re-sync position organically.
                     } else {
+                        // Guest with controls resumed — tell host our pos is in sync.
+                        // Only send SYNC if we're on the right track; if on wrong track,
+                        // snap back first (host PLAY reply will confirm position after snap).
                         const c = hostConn();
-                        if (c?.open && now - refs.current.lastSyncRequestTs > 2500) {
-                            refs.current.lastSyncRequestTs = now;
-                            c.send({ type: 'SYNC' });
-                        }
                         if (refs.current.targetUri) {
                             const curUri = Spicetify.Player.data?.item?.uri;
                             if (curUri && curUri !== refs.current.targetUri) {
-                                refs.current.ignoreSync = true;
+                                // Wrong track — snap back. Suppress the resulting events.
+                                refs.current.ignoreNextSongChange = true;
+                                refs.current.ignoreNextOnPP = true;
+                                refs.current.lastSyncAppliedTs = Date.now();
                                 Spicetify.Player.playUri(refs.current.targetUri).catch(() => {
-                                    refs.current.ignoreSync = false;
+                                    refs.current.ignoreNextSongChange = false;
+                                    refs.current.ignoreNextOnPP = false;
                                 });
                                 Spicetify.showNotification('🔒 Locked to Jam');
+                            } else {
+                                // Right track — request a position sync from host.
+                                if (c?.open && now - refs.current.lastSyncRequestTs > 2500) {
+                                    refs.current.lastSyncRequestTs = now;
+                                    c.send({ type: 'SYNC' });
+                                }
                             }
+                        } else if (c?.open && now - refs.current.lastSyncRequestTs > 2500) {
+                            refs.current.lastSyncRequestTs = now;
+                            c.send({ type: 'SYNC' });
                         }
                     }
                 }

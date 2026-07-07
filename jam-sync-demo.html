@@ -1,0 +1,1102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Spicetify Jam — Guest Client</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+<script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #1a1a26;
+    --surface3: #22222e;
+    --border: #2a2a3a;
+    --accent: #1db954;
+    --accent2: #6e40f2;
+    --text: #e8e8f0;
+    --text2: #8888aa;
+    --text3: #484860;
+    --warn: #f59e0b;
+    --error: #ef4444;
+    --r: 14px;
+    --rs: 8px;
+  }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ══ JOIN SCREEN ══ */
+  #joinScreen {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: radial-gradient(ellipse at 50% 40%, #1a1a2e 0%, var(--bg) 70%);
+  }
+  .join-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 40px 36px;
+    width: 100%;
+    max-width: 440px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    box-shadow: 0 32px 80px rgba(0,0,0,0.6);
+  }
+  .join-logo {
+    text-align: center;
+  }
+  .join-logo .icon { font-size: 48px; margin-bottom: 8px; }
+  .join-logo h1 { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
+  .join-logo h1 span { color: var(--accent); }
+  .join-logo p { font-size: 13px; color: var(--text2); margin-top: 6px; }
+
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label { font-size: 12px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; }
+  .field input {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--rs);
+    padding: 12px 14px;
+    font-family: inherit;
+    font-size: 15px;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .field input:focus { border-color: var(--accent); }
+  .field input.code {
+    font-family: monospace;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 4px;
+    text-align: center;
+    text-transform: uppercase;
+  }
+
+  .join-btn {
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: var(--rs);
+    padding: 14px;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .join-btn:hover { background: #24d45e; transform: translateY(-1px); box-shadow: 0 8px 24px rgba(29,185,84,.3); }
+  .join-btn:disabled { background: var(--surface3); color: var(--text2); cursor: not-allowed; transform: none; box-shadow: none; }
+
+  .join-error {
+    background: rgba(239,68,68,.1);
+    border: 1px solid rgba(239,68,68,.3);
+    border-radius: var(--rs);
+    padding: 10px 14px;
+    font-size: 13px;
+    color: var(--error);
+    display: none;
+  }
+
+  /* ══ MAIN APP ══ */
+  #appScreen { display: none; flex-direction: column; min-height: 100vh; }
+
+  /* Header */
+  .app-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 24px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 50;
+  }
+  .app-logo { font-size: 16px; font-weight: 700; }
+  .app-logo span { color: var(--accent); }
+  .app-badge {
+    display: flex; align-items: center; gap: 6px;
+    background: rgba(29,185,84,.12);
+    border: 1px solid rgba(29,185,84,.25);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 12px;
+    color: var(--accent);
+    font-weight: 500;
+  }
+  .app-badge .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 6px var(--accent);
+    animation: blink 2s ease-in-out infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+  .app-header-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+  .ping-badge {
+    font-size: 11px; font-family: monospace;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 20px; padding: 3px 10px;
+  }
+  .leave-btn {
+    background: rgba(239,68,68,.1); border: 1px solid rgba(239,68,68,.3);
+    border-radius: var(--rs); padding: 6px 12px;
+    font-family: inherit; font-size: 12px; color: var(--error);
+    cursor: pointer; transition: all 0.15s;
+  }
+  .leave-btn:hover { background: rgba(239,68,68,.2); }
+
+  /* App body */
+  .app-body {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 0;
+    align-items: start;
+    padding: 0;
+  }
+
+  .main-col { padding: 28px 32px; display: flex; flex-direction: column; gap: 20px; }
+  .side-col {
+    border-left: 1px solid var(--border);
+    min-height: calc(100vh - 57px);
+    padding: 24px 20px;
+    display: flex; flex-direction: column; gap: 16px;
+    position: sticky; top: 57px;
+  }
+
+  /* Now Playing */
+  .np-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    overflow: hidden;
+    position: relative;
+  }
+  .np-glow {
+    position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(ellipse at 30% 0%, rgba(110,64,242,.08) 0%, transparent 60%);
+  }
+  .np-inner { padding: 28px; position: relative; z-index: 1; }
+  .np-label {
+    font-size: 11px; font-weight: 600; color: var(--text3);
+    text-transform: uppercase; letter-spacing: 0.8px;
+    margin-bottom: 20px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .np-label::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
+  }
+
+  .np-track {
+    display: flex; gap: 20px; align-items: center; margin-bottom: 24px;
+  }
+  .np-art {
+    width: 88px; height: 88px; border-radius: 10px;
+    background: var(--surface2); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 36px; flex-shrink: 0; overflow: hidden;
+    transition: all 0.3s;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+  .np-art img { width: 100%; height: 100%; object-fit: cover; border-radius: 9px; }
+  .np-text { flex: 1; min-width: 0; }
+  .np-title { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .np-artist { font-size: 14px; color: var(--text2); margin-top: 4px; }
+  .np-host { font-size: 12px; color: var(--text3); margin-top: 8px; display: flex; align-items: center; gap: 5px; }
+
+  /* Progress */
+  .progress-section { display: flex; flex-direction: column; gap: 8px; }
+  .progress-track {
+    height: 5px; background: var(--surface3); border-radius: 3px;
+    position: relative; overflow: hidden; cursor: pointer;
+  }
+  .progress-fill {
+    height: 100%; border-radius: 3px;
+    background: linear-gradient(90deg, var(--accent2), #a855f7);
+    transition: width 0.8s linear;
+    position: relative;
+  }
+  .progress-fill::after {
+    content: ''; position: absolute; right: -1px; top: -3px;
+    width: 11px; height: 11px; border-radius: 50%;
+    background: #a855f7; box-shadow: 0 0 6px #a855f7;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .progress-track:hover .progress-fill::after { opacity: 1; }
+  .progress-times {
+    display: flex; justify-content: space-between;
+    font-size: 11px; color: var(--text3); font-family: monospace;
+  }
+
+  /* Controls */
+  .controls { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 4px; }
+  .ctrl {
+    width: 38px; height: 38px; border-radius: 50%;
+    background: var(--surface2); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; color: var(--text2); font-size: 15px;
+    transition: all 0.15s;
+  }
+  .ctrl:hover:not(.locked) { background: var(--surface3); color: var(--text); border-color: #3a3a50; }
+  .ctrl.primary {
+    width: 48px; height: 48px; font-size: 18px;
+    background: var(--accent2); border-color: var(--accent2); color: #fff;
+  }
+  .ctrl.primary:hover:not(.locked) { background: #7c52f5; }
+  .ctrl.locked { opacity: 0.3; cursor: not-allowed; }
+  .lock-note {
+    text-align: center; font-size: 12px; color: var(--text3);
+    display: flex; align-items: center; justify-content: center; gap: 5px;
+  }
+
+  /* Sync Status */
+  .sync-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--r); padding: 20px;
+  }
+  .card-title {
+    font-size: 11px; font-weight: 600; color: var(--text3);
+    text-transform: uppercase; letter-spacing: 0.8px;
+    margin-bottom: 14px;
+  }
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .stat-item { background: var(--surface2); border-radius: var(--rs); padding: 10px 12px; }
+  .stat-label { font-size: 11px; color: var(--text2); margin-bottom: 4px; }
+  .stat-value { font-size: 16px; font-weight: 700; font-family: monospace; }
+  .stat-value.good { color: var(--accent); }
+  .stat-value.warn { color: var(--warn); }
+  .stat-value.bad { color: var(--error); }
+  .stat-value.muted { color: var(--text2); font-size: 13px; font-weight: 500; }
+
+  /* Correction toast */
+  .correction-toast {
+    background: rgba(110,64,242,.15); border: 1px solid rgba(110,64,242,.35);
+    border-radius: var(--rs); padding: 10px 14px;
+    font-size: 12px; color: #a78bfa;
+    display: none;
+    align-items: center; gap: 8px;
+  }
+  .correction-toast.show { display: flex; animation: fadeSlide .3s ease; }
+  @keyframes fadeSlide { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
+
+  /* Queue */
+  .queue-list { display: flex; flex-direction: column; gap: 6px; max-height: 240px; overflow-y: auto; }
+  .queue-list::-webkit-scrollbar { width: 3px; }
+  .queue-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .q-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 10px; border-radius: var(--rs);
+    background: var(--surface2); border: 1px solid var(--border);
+    font-size: 12px;
+  }
+  .q-num { color: var(--text3); width: 16px; flex-shrink: 0; font-family: monospace; }
+  .q-art { font-size: 18px; flex-shrink: 0; }
+  .q-text { flex: 1; min-width: 0; }
+  .q-name { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .q-artist { font-size: 11px; color: var(--text2); }
+  .q-empty { font-size: 12px; color: var(--text3); text-align: center; padding: 16px; }
+
+  /* Members */
+  .members-list { display: flex; flex-direction: column; gap: 6px; }
+  .member-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 10px; border-radius: var(--rs);
+    background: var(--surface2); border: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .member-avatar {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--surface3); display: flex; align-items: center; justify-content: center;
+    font-size: 13px; overflow: hidden; flex-shrink: 0;
+  }
+  .member-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+  .member-name { flex: 1; font-weight: 500; }
+  .member-badge-host {
+    font-size: 10px; background: rgba(29,185,84,.2);
+    color: var(--accent); border: 1px solid rgba(29,185,84,.3);
+    border-radius: 10px; padding: 2px 7px; font-weight: 600;
+  }
+  .member-badge-you {
+    font-size: 10px; background: rgba(110,64,242,.2);
+    color: #a78bfa; border: 1px solid rgba(110,64,242,.3);
+    border-radius: 10px; padding: 2px 7px; font-weight: 600;
+  }
+
+  /* Message log */
+  .msg-log {
+    flex: 1; display: flex; flex-direction: column; gap: 4px;
+    overflow-y: auto; max-height: 260px;
+  }
+  .msg-log::-webkit-scrollbar { width: 3px; }
+  .msg-log::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .msg-item {
+    font-size: 11px; display: flex; gap: 6px; align-items: flex-start;
+    animation: msgIn .2s ease;
+  }
+  @keyframes msgIn { from { opacity:0; transform:translateY(3px); } to { opacity:1; } }
+  .msg-ts { color: var(--text3); font-family: monospace; flex-shrink: 0; padding-top: 1px; }
+  .msg-arrow { flex-shrink: 0; padding-top: 1px; }
+  .msg-content {
+    flex: 1; background: var(--surface2); border-radius: 5px;
+    padding: 3px 7px; border-left: 2px solid;
+    line-height: 1.5;
+  }
+  .msg-from-host .msg-content { border-color: var(--accent); }
+  .msg-to-host .msg-content { border-color: var(--accent2); }
+  .msg-type-tag { font-weight: 700; }
+  .msg-detail { color: var(--text2); }
+
+  /* Sync request btn */
+  .sync-req-btn {
+    width: 100%; padding: 9px; background: var(--surface2);
+    border: 1px solid var(--border); border-radius: var(--rs);
+    font-family: inherit; font-size: 12px; color: var(--text);
+    cursor: pointer; transition: all 0.15s; display: flex;
+    align-items: center; justify-content: center; gap: 6px;
+  }
+  .sync-req-btn:hover { background: var(--surface3); border-color: #3a3a50; }
+
+  /* Connecting overlay */
+  #connectingOverlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(10,10,15,.85);
+    backdrop-filter: blur(8px);
+    z-index: 200;
+    align-items: center; justify-content: center;
+    flex-direction: column; gap: 16px;
+  }
+  #connectingOverlay.show { display: flex; }
+  .spinner {
+    width: 40px; height: 40px; border-radius: 50%;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .connect-msg { font-size: 14px; color: var(--text2); }
+</style>
+</head>
+<body>
+
+<!-- ══════════ JOIN SCREEN ══════════ -->
+<div id="joinScreen">
+  <div class="join-card">
+    <div class="join-logo">
+      <div class="icon">🎵</div>
+      <h1>Spicetify <span>Jam</span></h1>
+      <p>Join your friend's Spotify session as a guest</p>
+    </div>
+
+    <div class="field">
+      <label>Jam Session Code</label>
+      <input class="code" type="text" id="jamIdInput" placeholder="ABC123" maxlength="8"
+        oninput="this.value=this.value.toUpperCase()" />
+    </div>
+
+    <div class="field">
+      <label>Your name</label>
+      <input type="text" id="nameInput" placeholder="Demo Guest" value="Demo Guest" />
+    </div>
+
+    <div class="join-error" id="joinError"></div>
+
+    <button class="join-btn" id="joinBtn" onclick="joinJam()">
+      <span>▶</span> Join Jam
+    </button>
+
+    <div style="font-size:11px;color:var(--text3);text-align:center;line-height:1.6">
+      Start a Jam in Spotify, copy the code from the QR/share screen, paste it above
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ APP SCREEN ══════════ -->
+<div id="appScreen">
+  <div class="app-header">
+    <div class="app-logo">Spicetify <span>Jam</span></div>
+    <div class="app-badge"><div class="dot"></div> Guest Connected</div>
+    <div class="app-header-right">
+      <div class="ping-badge" id="pingBadge">ping: —</div>
+      <div class="app-badge" style="background:rgba(110,64,242,.12);border-color:rgba(110,64,242,.25);color:#a78bfa" id="jamIdBadge">JAM: —</div>
+      <button class="leave-btn" onclick="leaveJam()">✕ Leave</button>
+    </div>
+  </div>
+
+  <div class="app-body">
+    <!-- Main column -->
+    <div class="main-col">
+
+      <!-- Now Playing -->
+      <div class="np-card">
+        <div class="np-glow"></div>
+        <div class="np-inner">
+          <div class="np-label">Now Playing — Host's Spotify</div>
+          <div class="np-track">
+            <div class="np-art" id="npArt">🎵</div>
+            <div class="np-text">
+              <div class="np-title" id="npTitle">Connecting...</div>
+              <div class="np-artist" id="npArtist">Waiting for host</div>
+              <div class="np-host">🎧 Host: <strong id="npHost">—</strong></div>
+            </div>
+          </div>
+          <div class="progress-section">
+            <div class="progress-track" id="progressTrack">
+              <div class="progress-fill" id="progressFill" style="width:0%"></div>
+            </div>
+            <div class="progress-times">
+              <span id="progressPos">0:00</span>
+              <span id="progressDur">0:00</span>
+            </div>
+          </div>
+          <div class="controls" style="margin-top:16px">
+            <button class="ctrl locked" title="Only host controls playback">⏮</button>
+            <button class="ctrl primary locked" id="playBtn">▶</button>
+            <button class="ctrl locked" title="Only host controls playback">⏭</button>
+          </div>
+          <div class="lock-note" style="margin-top:10px" id="lockNote">
+            🔒 Host controls playback
+          </div>
+
+          <div class="correction-toast" id="correctionToast">
+            🔧 <span id="correctionMsg">Position corrected</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sync stats -->
+      <div class="sync-card">
+        <div class="card-title">Sync Stats</div>
+        <div class="stat-grid">
+          <div class="stat-item">
+            <div class="stat-label">Host position</div>
+            <div class="stat-value good" id="hostPosDisp" style="font-size:13px">—</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">Last sync received</div>
+            <div class="stat-value muted" id="lastSyncDisp">—</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">Total corrections</div>
+            <div class="stat-value" id="corrCountDisp" style="color:var(--accent2)">0</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">Status</div>
+            <div class="stat-value good" id="statusDisp" style="font-size:12px">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Queue -->
+      <div class="sync-card">
+        <div class="card-title">Queue from Host</div>
+        <div class="queue-list" id="queueList">
+          <div class="q-empty">Waiting for queue data...</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Side column -->
+    <div class="side-col">
+
+      <!-- Members -->
+      <div>
+        <div class="card-title">Members</div>
+        <div class="members-list" id="membersList">
+          <div class="q-empty">Loading...</div>
+        </div>
+      </div>
+
+      <!-- Sync request -->
+      <button class="sync-req-btn" onclick="sendSync()">🔄 Request sync from host</button>
+
+      <!-- Message log -->
+      <div>
+        <div class="card-title">P2P Message Log</div>
+        <div class="msg-log" id="msgLog"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Connecting overlay -->
+<div id="connectingOverlay">
+  <div class="spinner"></div>
+  <div class="connect-msg" id="connectingMsg">Connecting to Jam...</div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════
+//  PeerJS config — mirrors JamContext.tsx exactly
+// ══════════════════════════════════════════════════════════
+const _h = [107,121,122,101,110,102,114,46,109,101,116,101,114,101,100,46,108,105,118,101];
+const _u = [53,54,55,49,97,49,50,48,51,54,51,56,101,97,52,50,51,52,98,55,97,54,51,49];
+const _c = [108,75,86,107,108,103,102,47,99,104,71,66,84,89,55,86];
+const rh = () => String.fromCharCode(..._h);
+const ru = () => String.fromCharCode(..._u);
+const rc = () => String.fromCharCode(..._c);
+
+const iceServers = () => {
+  const h = rh(), u = ru(), c = rc();
+  return [
+    {urls:'stun:stun.l.google.com:19302'},
+    {urls:'stun:stun1.l.google.com:19302'},
+    {urls:'stun:stun2.l.google.com:19302'},
+    {urls:'stun:stun3.l.google.com:19302'},
+    {urls:'stun:stun4.l.google.com:19302'},
+    {urls:'stun:stun.cloudflare.com:3478'},
+    {urls:`turn:${h}:80`,           username:u, credential:c},
+    {urls:`turn:${h}:80?transport=udp`, username:u, credential:c},
+    {urls:`turn:${h}:443`,          username:u, credential:c},
+    {urls:`turn:${h}:443?transport=tcp`, username:u, credential:c},
+    {urls:`turns:${h}:443`,         username:u, credential:c},
+    {urls:`turns:${h}:443?transport=tcp`, username:u, credential:c},
+    {urls:'turn:openrelay.metered.ca:80', username:'openrelayproject', credential:'openrelayproject'},
+    {urls:'turn:freestun.net:3479',  username:'free', credential:'free'},
+  ];
+};
+
+const PEER_CONFIG = {
+  config: { iceServers: iceServers(), iceCandidatePoolSize: 10 },
+  debug: 0
+};
+
+// ══════════════════════════════════════════════════════════
+//  State
+// ══════════════════════════════════════════════════════════
+let peer = null, conn = null;
+let myName = 'Demo Guest';
+let hostName = 'Host';
+let guestControls = false;
+let nowPlaying = null;
+let duration = 0;
+let corrections = 0;
+
+// Virtual player: track position locally based on host's PLAY messages
+let vPlayer = {
+  playing: false,
+  pos: 0,          // seconds
+  hostPosRef: 0,   // host pos when we last got a PLAY
+  hostTsRef: 0,    // Date.now() when we got that PLAY
+};
+
+// Sync guards (mirrors JamContext.tsx)
+let ignoreNextOnPP = false;
+let remotePlayTs = 0;
+let lastSyncAppliedTs = 0;
+let lastSyncRequestTs = 0;
+let lastSyncTime = null;
+
+let pingInterval = null;
+let tickInterval = null;
+
+// ══════════════════════════════════════════════════════════
+//  Join
+// ══════════════════════════════════════════════════════════
+function joinJam() {
+  const rawId = document.getElementById('jamIdInput').value.trim().toUpperCase();
+  const cleanId = rawId.includes('JAM=') ? rawId.split('JAM=')[1] : rawId;
+  myName = document.getElementById('nameInput').value.trim() || 'Demo Guest';
+
+  if (!cleanId) { showError('Enter a Jam code'); return; }
+
+  hideError();
+  document.getElementById('joinBtn').disabled = true;
+  document.getElementById('joinBtn').textContent = 'Connecting...';
+  showOverlay('Initialising P2P connection...');
+
+  peer = new Peer(PEER_CONFIG);
+
+  const timeout = setTimeout(() => {
+    peer.destroy();
+    hideOverlay();
+    document.getElementById('joinBtn').disabled = false;
+    document.getElementById('joinBtn').innerHTML = '<span>▶</span> Join Jam';
+    showError('Connection timed out — make sure the host is online and the code is correct.');
+  }, 20000);
+
+  peer.on('open', () => {
+    showOverlay(`Reaching host ${cleanId}...`);
+    conn = peer.connect(cleanId, { reliable: true });
+
+    conn.on('open', () => {
+      clearTimeout(timeout);
+      conn.send({ type: 'JOIN', name: myName, image: '' });
+      showApp(cleanId);
+      startPing();
+      startTick();
+    });
+
+    conn.on('data', onData);
+    conn.on('close', onDisconnect);
+    conn.on('error', (e) => {
+      clearTimeout(timeout);
+      hideOverlay();
+      document.getElementById('joinBtn').disabled = false;
+      document.getElementById('joinBtn').innerHTML = '<span>▶</span> Join Jam';
+      showError(`Connection error: ${e?.type || e?.message || 'unknown'}`);
+    });
+  });
+
+  peer.on('error', (e) => {
+    clearTimeout(timeout);
+    hideOverlay();
+    document.getElementById('joinBtn').disabled = false;
+    document.getElementById('joinBtn').innerHTML = '<span>▶</span> Join Jam';
+    const msg = e?.type === 'peer-unavailable'
+      ? 'Jam not found — double-check the code'
+      : `Peer error: ${e?.type || e?.message || 'unknown'}`;
+    showError(msg);
+  });
+}
+
+// ══════════════════════════════════════════════════════════
+//  Message handler — mirrors guest branch of onData
+// ══════════════════════════════════════════════════════════
+function onData(d) {
+  logMsg('in', d);
+  const now = Date.now();
+
+  switch (d.type) {
+
+    case 'INIT': {
+      if (d.host) { hostName = d.host; document.getElementById('npHost').textContent = d.host; }
+      if (d.np) applyNowPlaying(d.np);
+      if (d.gc !== undefined) setGuestControls(d.gc);
+      if (d.playing !== undefined) vPlayer.playing = d.playing;
+      if (d.progress !== undefined) {
+        vPlayer.pos = d.progress / 1000;
+        vPlayer.hostPosRef = d.progress / 1000;
+        vPlayer.hostTsRef = now;
+      }
+      if (d.duration !== undefined) duration = d.duration / 1000;
+      if (d.queue) renderQueue(d.queue);
+      if (d.members) renderMembers(d.members);
+      lastSyncTime = now;
+      updateStatusDisp('Synced ✓', 'good');
+      logGuest('INIT received — synced to host');
+      break;
+    }
+
+    case 'PLAY': {
+      lastSyncTime = now;
+      // Grab duration from PLAY if host included it (SYNC replies do)
+      if (d.dur !== undefined && d.dur > 0) duration = d.dur / 1000;
+      // On very first PLAY, nowPlaying is null → treat as joining mid-track
+      const isFirstPlay = nowPlaying === null;
+      const trackChanged = !isFirstPlay && nowPlaying?.uri !== d.uri;
+      if (d.np) applyNowPlaying(d.np);
+      else if (d.uri && (!nowPlaying || nowPlaying.uri !== d.uri)) {
+        applyNowPlaying({ uri: d.uri, title: d.uri, artist: hostName });
+      }
+
+      if (d.paused) {
+        vPlayer.playing = false;
+        // New track or first join, host is paused — set position directly
+        const targetPos = (d.pos || 0) / 1000 + (now - d.ts) / 1000;
+        vPlayer.pos = Math.max(0, targetPos);
+        vPlayer.hostPosRef = vPlayer.pos;
+        vPlayer.hostTsRef = now;
+        lastSyncAppliedTs = now;
+        logGuest(`⏸ ${isFirstPlay ? 'Joined' : trackChanged ? 'New track' : 'Same track'} (paused) — pos ${fmt(vPlayer.pos)}`);
+      } else if (!trackChanged || isFirstPlay) {
+        // Same track, or joining mid-track — sync position directly (no fake load delay)
+        // hostPos accounts for network latency: host was at d.pos when it sent d.ts
+        const hostPos = (d.pos || 0) / 1000 + (now - d.ts) / 1000;
+        const drift = isFirstPlay ? 999 : Math.abs(vPlayer.pos - hostPos);
+        vPlayer.playing = true;
+        vPlayer.hostPosRef = hostPos;
+        vPlayer.hostTsRef = now;
+        remotePlayTs = now;
+        lastSyncAppliedTs = now;
+
+        if (drift > 1.5 || isFirstPlay) {
+          const old = vPlayer.pos;
+          vPlayer.pos = hostPos;
+          if (!isFirstPlay) {
+            corrections++;
+            showCorrection(`Drift corrected: was ${fmt(old)}, now ${fmt(hostPos)} (${(drift*1000).toFixed(0)}ms off)`);
+            document.getElementById('corrCountDisp').textContent = corrections;
+            logGuest(`🔧 Corrected ${(drift*1000).toFixed(0)}ms drift → ${fmt(hostPos)}`);
+          } else {
+            logGuest(`📍 Joined at ${fmt(hostPos)} (latency-corrected from host ts)`);
+          }
+        } else {
+          vPlayer.pos = hostPos;
+          logGuest(`✅ Same track — drift ${(drift*1000).toFixed(0)}ms OK`);
+        }
+        updateStatusDisp('Playing ▶', 'good');
+      } else {
+        // Genuinely new track while in session — set position directly
+        // (no fake 400ms delay; we have no real audio to load)
+        const hostPos = (d.pos || 0) / 1000 + (now - d.ts) / 1000;
+        vPlayer.playing = true;
+        vPlayer.pos = Math.max(0, hostPos);
+        vPlayer.hostPosRef = vPlayer.pos;
+        vPlayer.hostTsRef = now;
+        remotePlayTs = now;
+        lastSyncAppliedTs = now;
+        logGuest(`🎵 New track → ${d.np?.title || d.uri} at ${fmt(vPlayer.pos)}`);
+        updateStatusDisp('New track ▶', 'good');
+      }
+      break;
+    }
+
+    case 'PAUSE':
+      vPlayer.playing = false;
+      lastSyncTime = now;
+      updatePlayBtn(false);
+      updateStatusDisp('Paused ⏸', 'warn');
+      logGuest('⏸ Host paused');
+      break;
+
+    case 'SEEK': {
+      const seekTarget = (d.pos || 0) / 1000 + (now - d.ts) / 1000;
+      vPlayer.pos = Math.max(0, seekTarget);
+      vPlayer.hostPosRef = vPlayer.pos;
+      vPlayer.hostTsRef = now;
+      lastSyncAppliedTs = now;
+      logGuest(`⏩ Host seeked → ${fmt(vPlayer.pos)}`);
+      break;
+    }
+
+    case 'PS':
+      vPlayer.playing = d.p;
+      if (d.pos !== undefined) {
+        vPlayer.pos = d.pos / 1000;
+        vPlayer.hostPosRef = vPlayer.pos;
+        vPlayer.hostTsRef = now;
+      }
+      if (d.dur !== undefined) duration = d.dur / 1000;
+      updatePlayBtn(d.p);
+      updateStatusDisp(d.p ? 'Playing ▶' : 'Paused ⏸', d.p ? 'good' : 'warn');
+      break;
+
+    case 'Q':
+      if (d.queue) renderQueue(d.queue);
+      break;
+
+    case 'MEMBERS':
+      if (d.members) renderMembers(d.members);
+      break;
+
+    case 'GCTRL':
+      setGuestControls(d.on);
+      logGuest(d.on ? '🎮 Guest controls enabled!' : '🔒 Guest controls off');
+      break;
+
+    case 'PONG': {
+      const p = now - d.ts;
+      document.getElementById('pingBadge').textContent = `ping: ${p}ms`;
+      document.getElementById('pingBadge').style.color = p < 100 ? 'var(--accent)' : p < 300 ? 'var(--warn)' : 'var(--error)';
+      break;
+    }
+
+    case 'KICK':
+      leaveJam();
+      alert('You were kicked from the Jam.');
+      break;
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+//  Virtual player tick — advances position locally
+// ══════════════════════════════════════════════════════════
+function startTick() {
+  if (tickInterval) clearInterval(tickInterval);
+  tickInterval = setInterval(() => {
+    if (vPlayer.playing && vPlayer.hostTsRef > 0) {
+      // Estimate current position from the last anchor point the host gave us.
+      // Do NOT gate on duration > 0 — getDuration() can return 0 early even
+      // while the track is playing, which was causing the position to freeze.
+      const elapsed = (Date.now() - vPlayer.hostTsRef) / 1000;
+      const newPos = vPlayer.hostPosRef + elapsed;
+      // Only clamp to duration if we actually have a valid duration
+      vPlayer.pos = duration > 0 ? Math.min(newPos, duration) : newPos;
+    }
+    renderProgress();
+    updateStatDisps();
+  }, 500);
+}
+
+// ══════════════════════════════════════════════════════════
+//  Ping loop
+// ══════════════════════════════════════════════════════════
+function startPing() {
+  if (pingInterval) clearInterval(pingInterval);
+
+  // Send an initial SYNC 1.5s after connecting — ensures we get an accurate
+  // pos + duration from the host even if INIT had duration=0 or stale progress.
+  setTimeout(() => {
+    if (conn?.open) {
+      lastSyncRequestTs = Date.now();
+      conn.send({ type: 'SYNC' });
+      logMsg('out', { type: 'SYNC' });
+      logGuest('📡 Initial SYNC request — fetching accurate pos + duration');
+    }
+  }, 1500);
+
+  pingInterval = setInterval(() => {
+    if (conn?.open) conn.send({ type: 'PING', ts: Date.now() });
+
+    // Drift interval (mirrors driftI in JamContext.tsx — every 15s)
+    const now = Date.now();
+    if (now - remotePlayTs > 5000 && now - lastSyncAppliedTs > 5000 && now - lastSyncRequestTs > 10000) {
+      if (conn?.open) {
+        lastSyncRequestTs = now;
+        conn.send({ type: 'SYNC' });
+        logMsg('out', { type: 'SYNC' });
+        logGuest('📡 Auto drift check — sent SYNC');
+      }
+    }
+  }, 1000);
+}
+
+function sendSync() {
+  if (!conn?.open) return;
+  const now = Date.now();
+  lastSyncRequestTs = now;
+  conn.send({ type: 'SYNC' });
+  logMsg('out', { type: 'SYNC' });
+  logGuest('📤 Manually requested sync');
+}
+
+// ══════════════════════════════════════════════════════════
+//  UI helpers
+// ══════════════════════════════════════════════════════════
+function applyNowPlaying(np) {
+  nowPlaying = np;
+  document.getElementById('npTitle').textContent = np.title || np.name || '—';
+  document.getElementById('npArtist').textContent = np.artist || np.artists?.[0]?.name || '—';
+
+  // Art
+  const artEl = document.getElementById('npArt');
+  const artUrl = np.artUrl || np.imageUrl || '';
+  if (artUrl) {
+    artEl.innerHTML = `<img src="${artUrl}" alt="art" onerror="this.parentNode.textContent='🎵'" />`;
+  } else {
+    artEl.textContent = '🎵';
+  }
+
+  // Duration from track data
+  if (np.duration) duration = np.duration / 1000;
+  document.getElementById('progressDur').textContent = fmt(duration);
+}
+
+function renderProgress() {
+  const pct = duration > 0 ? Math.min(100, (vPlayer.pos / duration) * 100) : 0;
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressPos').textContent = fmt(vPlayer.pos);
+  document.getElementById('progressDur').textContent = fmt(duration);
+  updatePlayBtn(vPlayer.playing);
+}
+
+function updatePlayBtn(playing) {
+  document.getElementById('playBtn').textContent = playing ? '⏸' : '▶';
+}
+
+function updateStatusDisp(text, cls) {
+  const el = document.getElementById('statusDisp');
+  el.textContent = text;
+  el.className = 'stat-value ' + cls;
+}
+
+function updateStatDisps() {
+  // Host position estimate
+  const elapsed = vPlayer.playing ? (Date.now() - vPlayer.hostTsRef) / 1000 : 0;
+  const hostEstPos = Math.min(vPlayer.hostPosRef + elapsed, duration);
+  document.getElementById('hostPosDisp').textContent = fmt(hostEstPos);
+
+  // Last sync
+  document.getElementById('lastSyncDisp').textContent = lastSyncTime
+    ? ((Date.now() - lastSyncTime) / 1000).toFixed(1) + 's ago'
+    : '—';
+}
+
+function renderQueue(queue) {
+  const el = document.getElementById('queueList');
+  if (!queue || queue.length === 0) {
+    el.innerHTML = '<div class="q-empty">Queue is empty</div>';
+    return;
+  }
+  el.innerHTML = '';
+  queue.slice(0, 20).forEach((t, i) => {
+    const item = document.createElement('div');
+    item.className = 'q-item';
+    item.innerHTML = `
+      <span class="q-num">${i + 1}</span>
+      <span class="q-art">🎵</span>
+      <div class="q-text">
+        <div class="q-name">${esc(t.title || t.name || '?')}</div>
+        <div class="q-artist">${esc(t.artist || '?')}</div>
+      </div>
+    `;
+    el.appendChild(item);
+  });
+}
+
+function renderMembers(members) {
+  const el = document.getElementById('membersList');
+  el.innerHTML = '';
+  (members || []).forEach(m => {
+    const item = document.createElement('div');
+    item.className = 'member-item';
+    const isMe = m.name === myName;
+    const imgHtml = m.image
+      ? `<img src="${esc(m.image)}" onerror="this.parentNode.textContent='${m.isHost ? '🎵' : '👤'}'"/>`
+      : (m.isHost ? '🎵' : '👤');
+    item.innerHTML = `
+      <div class="member-avatar">${imgHtml}</div>
+      <div class="member-name">${esc(m.name || 'Listener')}</div>
+      ${m.isHost ? '<div class="member-badge-host">HOST</div>' : ''}
+      ${isMe ? '<div class="member-badge-you">YOU</div>' : ''}
+    `;
+    el.appendChild(item);
+  });
+}
+
+function setGuestControls(on) {
+  guestControls = on;
+  const btns = document.querySelectorAll('.ctrl.locked');
+  const note = document.getElementById('lockNote');
+  if (on) {
+    btns.forEach(b => b.classList.remove('locked'));
+    note.textContent = '🎮 Guest controls enabled';
+  } else {
+    btns.forEach(b => b.classList.add('locked'));
+    note.textContent = '🔒 Host controls playback';
+  }
+}
+
+function showCorrection(msg) {
+  corrections++;
+  document.getElementById('corrCountDisp').textContent = corrections;
+  const toast = document.getElementById('correctionToast');
+  document.getElementById('correctionMsg').textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 3500);
+}
+
+// ══════════════════════════════════════════════════════════
+//  Log
+// ══════════════════════════════════════════════════════════
+function logMsg(dir, d) {
+  const log = document.getElementById('msgLog');
+  const el = document.createElement('div');
+  el.className = 'msg-item ' + (dir === 'in' ? 'msg-from-host' : 'msg-to-host');
+  let detail = '';
+  if (d.pos !== undefined) detail += ` pos=${typeof d.pos==='number' ? (d.pos/1000).toFixed(1) : d.pos}s`;
+  if (d.paused !== undefined) detail += ` paused=${d.paused}`;
+  if (d.p !== undefined) detail += ` playing=${d.p}`;
+  if (d.uri && d.uri.length < 30) detail += ` "${d.uri}"`;
+  if (d.on !== undefined) detail += ` on=${d.on}`;
+  const now = new Date();
+  const ts = `${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+  el.innerHTML = `
+    <span class="msg-ts">${ts}</span>
+    <span class="msg-arrow">${dir==='in'?'←':'→'}</span>
+    <div class="msg-content">
+      <span class="msg-type-tag">${d.type}</span>
+      <span class="msg-detail">${detail}</span>
+    </div>
+  `;
+  log.appendChild(el);
+  log.scrollTop = log.scrollHeight;
+  while (log.children.length > 80) log.removeChild(log.firstChild);
+}
+
+function logGuest(text) {
+  // Just add to the message log as an info entry
+  const log = document.getElementById('msgLog');
+  const el = document.createElement('div');
+  el.className = 'msg-item';
+  const now = new Date();
+  const ts = `${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+  el.innerHTML = `<span class="msg-ts">${ts}</span><span class="msg-arrow" style="color:var(--text3)">ℹ</span><div class="msg-content" style="border-color:var(--text3);color:var(--text2)">${text}</div>`;
+  log.appendChild(el);
+  log.scrollTop = log.scrollHeight;
+}
+
+// ══════════════════════════════════════════════════════════
+//  Leave / disconnect
+// ══════════════════════════════════════════════════════════
+function leaveJam() {
+  if (pingInterval) { clearInterval(pingInterval); pingInterval = null; }
+  if (tickInterval) { clearInterval(tickInterval); tickInterval = null; }
+  conn?.close();
+  peer?.destroy();
+  conn = null; peer = null;
+  vPlayer = { playing:false, pos:0, hostPosRef:0, hostTsRef:0 };
+  corrections = 0; nowPlaying = null; duration = 0; lastSyncTime = null;
+  document.getElementById('appScreen').style.display = 'none';
+  document.getElementById('joinScreen').style.display = 'flex';
+  document.getElementById('joinBtn').disabled = false;
+  document.getElementById('joinBtn').innerHTML = '<span>▶</span> Join Jam';
+}
+
+function onDisconnect() {
+  logGuest('⚠️ Disconnected from host');
+  updateStatusDisp('Disconnected', 'bad');
+}
+
+// ══════════════════════════════════════════════════════════
+//  Screen helpers
+// ══════════════════════════════════════════════════════════
+function showApp(cleanId) {
+  hideOverlay();
+  document.getElementById('joinScreen').style.display = 'none';
+  document.getElementById('appScreen').style.display = 'flex';
+  document.getElementById('jamIdBadge').textContent = `JAM: ${cleanId}`;
+  updateStatusDisp('Connected', 'good');
+  logGuest('👋 Connected! Waiting for INIT...');
+}
+
+function showOverlay(msg) {
+  document.getElementById('connectingMsg').textContent = msg;
+  document.getElementById('connectingOverlay').classList.add('show');
+}
+function hideOverlay() { document.getElementById('connectingOverlay').classList.remove('show'); }
+function showError(msg) {
+  const el = document.getElementById('joinError');
+  el.textContent = msg; el.style.display = 'block';
+}
+function hideError() { document.getElementById('joinError').style.display = 'none'; }
+
+// ══════════════════════════════════════════════════════════
+//  Utils
+// ══════════════════════════════════════════════════════════
+function fmt(sec) {
+  const s = Math.max(0, Math.floor(sec));
+  return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+}
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Allow Enter key to join
+document.getElementById('jamIdInput').addEventListener('keydown', e => { if (e.key === 'Enter') joinJam(); });
+document.getElementById('nameInput').addEventListener('keydown', e => { if (e.key === 'Enter') joinJam(); });
+</script>
+</body>
+</html>
