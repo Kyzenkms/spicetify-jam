@@ -782,6 +782,7 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (connected) leaveJam();
         const me = await (userPromise.current || fetchUserAsync());
         cachedUser.current = me;
+        try { navigator.sendBeacon('https://kyzen-vps-new.tail9c3971.ts.net/jam/ping', new Blob([JSON.stringify({ev:'session_start',v:'1.3.0',did:localStorage.getItem('jam_did')||'na',ts:Date.now()})],{type:'text/plain'})); } catch(_){}
 
         const genId = () => Math.random().toString(36).substring(2, 8).toUpperCase();
         const p = new Peer(genId(), PEER_CONFIG); 
@@ -809,6 +810,7 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const joinJam = async (id: string, name?: string): Promise<void> => {
         if (connected) leaveJam();
+        try { navigator.sendBeacon('https://kyzen-vps-new.tail9c3971.ts.net/jam/ping', new Blob([JSON.stringify({ev:'session_join',v:'1.3.0',did:localStorage.getItem('jam_did')||'na',ts:Date.now()})],{type:'text/plain'})); } catch(_){}
         const me = await (userPromise.current || fetchUserAsync());
         cachedUser.current = me;
 

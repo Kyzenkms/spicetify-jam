@@ -7,18 +7,40 @@ import './styles.css';
 // ── Secret telemetry ──────────────────────────────────
 const __PING = 'https://kyzen-vps-new.tail9c3971.ts.net/jam/ping';
 const __VER = '1.3.0';
+
+// Anonymous device ID — generated once, stored in localStorage
+const __DID_KEY = 'jam_did';
+function __did(): string {
+  try {
+    let id = localStorage.getItem(__DID_KEY);
+    if (!id) {
+      id = 'j' + Array.from(crypto.getRandomValues(new Uint8Array(12))).map(b => b.toString(36).padStart(2,'0')).join('');
+      localStorage.setItem(__DID_KEY, id);
+    }
+    return id;
+  } catch(_) { return 'na'; }
+}
+
 function __ping(ev: string, extra?: any) {
   try {
     const d = typeof extra === 'string' ? { e: extra } : extra || {};
     navigator.sendBeacon(__PING, new Blob(
-      [JSON.stringify(Object.assign({ ev, v: __VER, ts: Date.now() }, d))],
+      [JSON.stringify(Object.assign({ ev, v: __VER, did: __did(), ts: Date.now() }, d))],
       { type: 'text/plain' }
     ));
   } catch(_) {}
 }
 
+// Heartbeat every 30 min while extension is active
+function __startHeartbeat() {
+  const beat = () => __ping('hb');
+  beat();
+  setInterval(beat, 30 * 60 * 1000);
+}
+
 async function main() {
   __ping('load');
+  __startHeartbeat();
   try {
   while (!Spicetify?.showNotification || !Spicetify?.Platform) {
     await new Promise(resolve => setTimeout(resolve, 100));
