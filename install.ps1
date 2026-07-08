@@ -1,49 +1,55 @@
-$ErrorActionPreference = "Stop"
+﻿$ErrorActionPreference = "Stop"
 
-$REPO = "https://github.com/Kyzenkms/spicetify-jam.git"
-$DIR = "$env:USERPROFILE\.spicetify-jam"
+$ExtensionName = "spicetify-jam.js"
+$ExtensionUrl = "https://raw.githubusercontent.com/Kyzenkms/spicetify-jam/main/dist/$ExtensionName"
 
 Write-Host "🎵 Installing Spicetify Jam..." -ForegroundColor Green
 
-# Check for git
-if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
-    Write-Host "❌ git not found. Install git first: https://git-scm.com/downloads" -ForegroundColor Red
-    exit 1
-}
-
-# Check for npm
-if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
-    Write-Host "❌ npm not found. Install Node.js first: https://nodejs.org/" -ForegroundColor Red
-    exit 1
-}
-
-# Check for spicetify
 if (-not (Get-Command spicetify -ErrorAction SilentlyContinue)) {
     Write-Host "❌ spicetify not found. Install it first: https://spicetify.app/" -ForegroundColor Red
     exit 1
 }
 
-# Clone or update
-if (Test-Path $DIR) {
-    Write-Host "📁 Folder exists, updating..." -ForegroundColor Yellow
-    Set-Location $DIR
-    git fetch origin
-    git reset --hard origin/main
-} else {
-    Write-Host "📥 Cloning repo..." -ForegroundColor Yellow
-    git clone $REPO $DIR
-    Set-Location $DIR
+function Invoke-Spicetify {
+    param([Parameter(Mandatory = $true)][string[]] $Arguments)
+
+    & spicetify @Arguments
+    if ($LASTEXITCODE -ne 0) {
+        throw "spicetify $($Arguments -join ' ') failed."
+    }
 }
 
-Write-Host "📦 Installing dependencies..." -ForegroundColor Yellow
-npm install --silent
+$UserDataPath = (& spicetify path userdata 2>$null | Select-Object -First 1)
+if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($UserDataPath)) {
+    $UserDataPath = Join-Path $env:APPDATA "spicetify"
+}
 
-Write-Host "🔨 Building..." -ForegroundColor Yellow
-npm run build
+$ExtensionsDir = Join-Path $UserDataPath.Trim() "Extensions"
+$ExtensionPath = Join-Path $ExtensionsDir $ExtensionName
+
+Write-Host "📁 Preparing Extensions folder..." -ForegroundColor Yellow
+New-Item -ItemType Directory -Force -Path $ExtensionsDir | Out-Null
+
+Write-Host "📥 Downloading latest build..." -ForegroundColor Yellow
+Invoke-WebRequest -Uri $ExtensionUrl -UseBasicParsing -OutFile $ExtensionPath
+
+if (-not (Test-Path -LiteralPath $ExtensionPath) -or (Get-Item -LiteralPath $ExtensionPath).Length -eq 0) {
+    throw "Downloaded extension is empty: $ExtensionPath"
+}
 
 Write-Host "⚙️ Configuring Spicetify..." -ForegroundColor Yellow
-spicetify config extensions spicetify-jam.js
-spicetify apply
+$ConfigOutput = & spicetify config extensions 2>$null
+if ($LASTEXITCODE -ne 0) {
+    throw "Failed to read Spicetify extensions config."
+}
+
+$ConfiguredExtensions = ($ConfigOutput -join "`n") -split "\r?\n|\|" | ForEach-Object { $_.Trim() }
+
+if ($ConfiguredExtensions -notcontains $ExtensionName) {
+    Invoke-Spicetify @("config", "extensions", $ExtensionName)
+}
+
+Invoke-Spicetify @("apply")
 
 Write-Host ""
 Write-Host "✅ Done! Restart Spotify to use Spicetify Jam." -ForegroundColor Green
