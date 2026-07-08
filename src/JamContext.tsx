@@ -188,7 +188,7 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const memberRegistry = useRef<Map<string, {name: string, image: string}>>(new Map());
     const cachedUser = useRef<{ name: string; image: string }>({ name: 'Listener', image: '' });
     const userPromise = useRef<Promise<{ name: string; image: string }> | null>(null);
-    const refs = useRef({ isHost: false, connected: false, guestControls: false, jamId: '', targetUri: null as string | null, ignoreNextSongChange: false, ignoreNextOnPP: false, isPlaying: false, forcingPause: false, lastProgress: 0, lastDuration: 0, remotePlayTs: 0, lastSyncRequestTs: 0, lastSyncAppliedTs: 0 });
+    const refs = useRef({ isHost: false, connected: false, guestControls: false, jamId: '', targetUri: null as string | null, ignoreNextSongChange: false, ignoreNextOnPP: false, isPlaying: false, forcingPause: false, lastProgress: 0, lastDuration: 0, remotePlayTs: 0, lastSyncRequestTs: 0, lastSyncAppliedTs: 0, sessionPinged: false });
     // Tracks who added each URI to the queue (keyed by uri). Populated when the
     // host receives an ADD_Q from a guest; merged into the queue on every refresh.
     const addedByMap = useRef<Map<string, { name: string; image: string }>>(new Map());
@@ -567,7 +567,8 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setMembers([]); 
         setQueue([]); 
         setNowPlaying(null);
-        refs.current.targetUri = null; 
+        refs.current.targetUri = null;
+        refs.current.sessionPinged = false;
         setPing(-1);
         queueUserOrdered.current = 0;
         reconnectAttempt.current = 0;
@@ -782,13 +783,13 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (connected) leaveJam();
         const me = await (userPromise.current || fetchUserAsync());
         cachedUser.current = me;
-        try { navigator.sendBeacon('https://kyzen-vps-new.tail9c3971.ts.net/jam/ping', new Blob([JSON.stringify({ev:'session_start',v:'1.3.0',did:localStorage.getItem('jam_did')||'na',ts:Date.now()})],{type:'text/plain'})); } catch(_){}
 
         const genId = () => Math.random().toString(36).substring(2, 8).toUpperCase();
         const p = new Peer(genId(), PEER_CONFIG); 
         peerRef.current = p;
         return new Promise<void>((res, rej) => {
             p.on('open', id => {
+                if (!refs.current.sessionPinged) { refs.current.sessionPinged = true; try { navigator.sendBeacon("https://kyzen-vps-new.tail9c3971.ts.net/jam/ping", new Blob([JSON.stringify({ev:"session_start",v:"1.3.0",did:localStorage.getItem("jam_did")||"na",ts:Date.now()})],{type:"text/plain"})); } catch(_){} }
                 setJamId(id); setIsHost(true); setConnected(true); setError(null);
                 setHostName(me.name); setMembers([{ id: 'host', name: me.name, image: me.image, isHost: true }]);
                 const t = getTrack(); if (t) { setNowPlaying(t); refs.current.targetUri = t.uri || null; }
@@ -810,7 +811,6 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const joinJam = async (id: string, name?: string): Promise<void> => {
         if (connected) leaveJam();
-        try { navigator.sendBeacon('https://kyzen-vps-new.tail9c3971.ts.net/jam/ping', new Blob([JSON.stringify({ev:'session_join',v:'1.3.0',did:localStorage.getItem('jam_did')||'na',ts:Date.now()})],{type:'text/plain'})); } catch(_){}
         const me = await (userPromise.current || fetchUserAsync());
         cachedUser.current = me;
 
@@ -843,6 +843,7 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 const conn = p.connect(cleanId, { reliable: true });
                 conn.on('open', () => {
                     settle(() => {
+                        if (!refs.current.sessionPinged) { refs.current.sessionPinged = true; try { navigator.sendBeacon("https://kyzen-vps-new.tail9c3971.ts.net/jam/ping", new Blob([JSON.stringify({ev:"session_join",v:"1.3.0",did:localStorage.getItem("jam_did")||"na",ts:Date.now()})],{type:"text/plain"})); } catch(_){} }
                         conns.current.set(cleanId, conn); 
                         setJamId(cleanId); 
                         setIsHost(false); 
