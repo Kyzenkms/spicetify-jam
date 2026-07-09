@@ -35,7 +35,7 @@ Desktop only: this is a Spicetify extension for the Spotify desktop client on Wi
 
 ### Quick Install (Recommended)
 
-Just run the one-liner for your OS. It handles everything — git clone, npm install, build, and Spicetify config.
+Just run the one-liner for your OS. It downloads the latest built extension and configures Spicetify.
 
 **Windows (PowerShell):**
 ```powershell
@@ -81,7 +81,7 @@ spicetify apply
 
 ## 🔄 Updating
 
-Just run the same install command again — it detects if you already have it and updates in place.
+Just run the same install command again — it downloads the latest build and updates in place.
 
 **Windows:**
 ```powershell
@@ -93,13 +93,8 @@ irm https://raw.githubusercontent.com/Kyzenkms/spicetify-jam/main/install.ps1 | 
 bash <(curl -fsSL https://raw.githubusercontent.com/Kyzenkms/spicetify-jam/main/install.sh)
 ```
 
-Or update manually:
+Or update manually by copying `dist/spicetify-jam.js` into your Spicetify `Extensions` folder, then run:
 ```bash
-cd ~/.spicetify-jam
-git fetch origin
-git reset --hard origin/main
-npm install
-npm run build
 spicetify apply
 ```
 
@@ -141,9 +136,9 @@ spicetify restore apply
 ```
 Then restart Spotify.
 
-### ❌ `npm` or `git` is not recognized
+### ❌ `spicetify` is not recognized
 
-You need **[Node.js](https://nodejs.org/)** and **[Git](https://git-scm.com/downloads)** installed. After installing, **restart your terminal** so the new commands are recognized.
+Install **[Spicetify](https://spicetify.app/)** first. After installing, restart your terminal so the new command is recognized.
 
 ---
 
