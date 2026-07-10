@@ -5,10 +5,11 @@
   <p><b>Real-time social listening sessions for Spotify (via Spicetify)</b></p>
   
   <p>
-    <img src="https://img.shields.io/badge/version-1.2.3-1db954?style=for-the-badge&logo=spotify" alt="Version 1.2.3" />
+    <img src="https://img.shields.io/badge/version-1.3.0-1db954?style=for-the-badge&logo=spotify" alt="Version 1.3.0" />
     <img src="https://img.shields.io/badge/spicetify-custom%20app-1db954?style=for-the-badge" alt="Spicetify App" />
     <img src="https://img.shields.io/badge/license-MIT-blue?style=for-the-badge" alt="License" />
-    <img src="https://img.shields.io/endpoint?url=https://kyzen-vps-new.tail9c3971.ts.net/jam/shields&style=for-the-badge&logo=spotify" alt="Active users" />
+    <img src="https://img.shields.io/endpoint?url=https://kyzen-vps-new.tail9c3971.ts.net/jam/shields&style=for-the-badge&logo=spotify" alt="Daily users" />
+    <img src="https://img.shields.io/endpoint?url=https://kyzen-vps-new.tail9c3971.ts.net/jam/total-shields&style=for-the-badge&logo=spotify&label=total%20users" alt="Total users" />
   </p>
 </div>
 
