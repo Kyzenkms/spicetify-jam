@@ -6,7 +6,7 @@
   
   <p>
     <img src="https://img.shields.io/badge/version-1.3.0-1db954?style=for-the-badge&logo=spotify" alt="Version 1.3.0" />
-    <img src="https://img.shields.io/badge/spicetify-extension-1db954?style=for-the-badge" alt="Spicetify Extension" />
+    <img src="https://img.shields.io/badge/spicetify-custom%20app-1db954?style=for-the-badge" alt="Spicetify Custom App" />
     <img src="https://img.shields.io/badge/license-MIT-blue?style=for-the-badge" alt="License" />
     <img src="https://img.shields.io/endpoint?url=https://kyzen-vps-new.tail9c3971.ts.net/jam/shields&style=for-the-badge&logo=spotify" alt="Daily users" />
     <img src="https://img.shields.io/endpoint?url=https://kyzen-vps-new.tail9c3971.ts.net/jam/total-shields&style=for-the-badge&logo=spotify&label=total%20users" alt="Total users" />
@@ -17,7 +17,7 @@
 
 **Spicetify Jam** lets you listen together with friends in real-time, syncing playback and sharing a fully collaborative queue right inside Spotify.
 
-Desktop only: this is a Spicetify extension for the Spotify desktop client on Windows, macOS, and Linux. It does not run on the Spotify mobile app.
+Desktop only: this is a Spicetify **custom app** for the Spotify desktop client on Windows, macOS, and Linux. It does not run on the Spotify mobile app.
 
 ## 🔗 Quick Links
 
@@ -156,14 +156,14 @@ Install **[Spicetify](https://spicetify.app/)** first. After installing, restart
 
 ## 🗑️ Uninstall
 
-Spicetify doesn't ship a dedicated uninstall for third-party extensions, but removing Spicetify Jam takes two commands.
+Spicetify doesn't ship a dedicated uninstall for custom apps, but removing Spicetify Jam takes two commands.
 
 **Windows (PowerShell) / Linux / macOS:**
 ```bash
-spicetify config extensions spicetify-jam.js -
+spicetify config custom_apps spicetify-jam -
 spicetify apply
 ```
-The trailing `-` removes the extension entry from your config. After `apply`, restart Spotify — the 🎵 icon disappears.
+The trailing `-` removes the app entry from your config. After `apply`, restart Spotify — the 🎵 icon disappears.
 
 **Alternative — full reset:**
 ```bash
@@ -171,7 +171,7 @@ spicetify restore apply
 ```
 This reverts your entire Spotify client (and any other Spicetify mods) back to stock.
 
-**Manual:** delete `spicetify-jam.js` from your Spicetify `Extensions` folder, then run `spicetify apply`.
+**Manual:** delete the `spicetify-jam` folder from your Spicetify `CustomApps` directory, then run `spicetify apply`.
 
 ---
 
