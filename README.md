@@ -25,7 +25,6 @@ Desktop only: this is a Spicetify **custom app** for the Spotify desktop client 
 - [📦 Installation](#-installation)
 - [🔄 Updating](#-updating)
 - [🎮 How to Use](#-how-to-use)
-- [🗑️ Uninstall](#-uninstall)
 - [🔧 Troubleshooting](#-troubleshooting)
 
 ---
@@ -151,27 +150,6 @@ Then restart Spotify.
 ### ❌ `spicetify` is not recognized
 
 Install **[Spicetify](https://spicetify.app/)** first. After installing, restart your terminal so the new command is recognized.
-
----
-
-## 🗑️ Uninstall
-
-Spicetify doesn't ship a dedicated uninstall for custom apps, but removing Spicetify Jam takes two commands.
-
-**Windows (PowerShell) / Linux / macOS:**
-```bash
-spicetify config custom_apps spicetify-jam -
-spicetify apply
-```
-The trailing `-` removes the app entry from your config. After `apply`, restart Spotify — the 🎵 icon disappears.
-
-**Alternative — full reset:**
-```bash
-spicetify restore apply
-```
-This reverts your entire Spotify client (and any other Spicetify mods) back to stock.
-
-**Manual:** delete the `spicetify-jam` folder from your Spicetify `CustomApps` directory, then run `spicetify apply`.
 
 ---
 
