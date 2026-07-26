@@ -223,7 +223,7 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         userPromise.current = fetchUserAsync();
         userPromise.current.then(u => { cachedUser.current = u; });
 
-        const CURRENT_VERSION = '1.3.0';
+        const CURRENT_VERSION = '1.3.1';
 
         const isNewerVersion = (latest: string, installed: string): boolean => {
             const l = latest.split('.').map(Number);
@@ -340,11 +340,15 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // intentionally excluded — natural playback is synced via PLAY broadcast.
         const spotifyQueue = (await getQueue()).filter(t => !removedUris.current.has(t.uri!));
         
-        // Attach attribution metadata
+        // Attach attribution metadata (defaulting unassigned/pre-existing tracks to Host)
         spotifyQueue.forEach(t => {
             const cleanUri = t.uri ? t.uri.split('?')[0] : '';
             if (cleanUri && trackAttribution.current[cleanUri]) {
                 t.addedBy = trackAttribution.current[cleanUri];
+            } else if (cachedUser.current) {
+                const hostAttr = { name: cachedUser.current.name, image: cachedUser.current.image };
+                t.addedBy = hostAttr;
+                if (cleanUri) trackAttribution.current[cleanUri] = hostAttr;
             }
         });
 
