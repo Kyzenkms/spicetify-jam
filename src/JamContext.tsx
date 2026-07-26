@@ -17,29 +17,27 @@ interface JamState {
     play: () => void; pause: () => void; next: () => void; prev: () => void;
 }
 
-const _h=[107,121,122,101,110,102,114,46,109,101,116,101,114,101,100,46,108,105,118,101];
-const _u=[53,54,55,49,97,49,50,48,51,54,51,56,101,97,52,50,51,52,98,55,97,54,51,49];
-const _c=[108,75,86,107,108,103,102,47,99,104,71,66,84,89,55,86];
-const _rh=()=>String.fromCharCode(..._h);
-const _ru=()=>String.fromCharCode(..._u);
-const _rc=()=>String.fromCharCode(..._c);
-const _ice=()=>{const h=_rh(),u=_ru(),c=_rc();return[
+const _ice=()=>[
     {urls:'stun:stun.l.google.com:19302'},
     {urls:'stun:stun1.l.google.com:19302'},
-    {urls:'stun:stun2.l.google.com:19302'},
-    {urls:'stun:stun3.l.google.com:19302'},
-    {urls:'stun:stun4.l.google.com:19302'},
-    {urls:'stun:stun.cloudflare.com:3478'},
-    {urls:`turn:${h}:80`,username:u,credential:c},
-    {urls:`turn:${h}:80?transport=udp`,username:u,credential:c},
-    {urls:`turn:${h}:443`,username:u,credential:c},
-    {urls:`turn:${h}:443?transport=tcp`,username:u,credential:c},
-    {urls:`turns:${h}:443`,username:u,credential:c},
-    {urls:`turns:${h}:443?transport=tcp`,username:u,credential:c},
-    {urls:'turn:openrelay.metered.ca:80',username:'openrelayproject',credential:'openrelayproject'},
-    {urls:'turn:freestun.net:3479',username:'free',credential:'free'},
-];};
-const PEER_CONFIG={config:{iceServers:_ice(),iceCandidatePoolSize:10},debug:0};
+    {urls:'stun:stun.relay.metered.ca:80'},
+    {urls:'turn:global.relay.metered.ca:80',username:'94458f086148dec1462e0426',credential:'FZ7jHqVwCJ71wV35'},
+    {urls:'turn:global.relay.metered.ca:80?transport=tcp',username:'94458f086148dec1462e0426',credential:'FZ7jHqVwCJ71wV35'},
+    {urls:'turn:global.relay.metered.ca:443',username:'94458f086148dec1462e0426',credential:'FZ7jHqVwCJ71wV35'},
+    {urls:'turns:global.relay.metered.ca:443?transport=tcp',username:'94458f086148dec1462e0426',credential:'FZ7jHqVwCJ71wV35'},
+    {urls:'turn:103.165.11.129:3478',username:'kyzenjam',credential:'KyzenJamPass2026!'},
+    {urls:'turn:103.165.11.129:3478?transport=tcp',username:'kyzenjam',credential:'KyzenJamPass2026!'},
+];
+
+const PEER_CONFIG={
+    host: '0.peerjs.com',
+    port: 443,
+    path: '/',
+    key: 'peerjs',
+    secure: true,
+    config:{iceServers:_ice(),iceCandidatePoolSize:10},
+    debug:0
+};
 
 const fmtImg = (u?: string): string => {
     if (!u) return '';
@@ -86,7 +84,7 @@ const getTrack = (): TrackInfo | null => {
         title: t.name || meta.title || 'Unknown',
         artist: t.artists?.[0]?.name || meta.artist_name || 'Unknown',
         artUrl: fmtImg(meta.image_xlarge_url || meta.image_large_url || meta.image_url || t.images?.[0]?.url),
-        uri: t.uri,
+        uri: (t.uri || '').split('?')[0],
         uid: t.uid
     };
 };
@@ -97,7 +95,7 @@ const extractTrack = (t: any): TrackInfo => {
     const title = data.name || meta.name || meta.title || t.name || '?';
     const artist = (data.artists?.[0]?.name) || meta.artist_name || meta.album_artist || t.artist_name || '?';
     const artUrl = fmtImg(meta.image_xlarge_url || meta.image_large_url || meta.image_url || data.album?.images?.[0]?.url || t.imageUrl || meta.thumbnail_url);
-    const uri = data.uri || t.uri || '';
+    const uri = (data.uri || t.uri || '').split('?')[0];
     const uid = data.uid || t.uid || '';
     return { title, artist, artUrl, uri, uid };
 };
@@ -210,7 +208,10 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     useEffect(() => { 
         queueRef.current = queue; 
         if (refs.current.connected) {
-            try { localStorage.setItem('jam_crash_queue', JSON.stringify(queue)); } catch {}
+            try { 
+                localStorage.setItem('jam_crash_queue', JSON.stringify(queue));
+                localStorage.setItem('jam_track_attr', JSON.stringify(trackAttribution.current));
+            } catch {}
         }
     }, [queue]);
 
@@ -224,11 +225,23 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         const CURRENT_VERSION = '1.3.0';
 
+        const isNewerVersion = (latest: string, installed: string): boolean => {
+            const l = latest.split('.').map(Number);
+            const inst = installed.split('.').map(Number);
+            for (let i = 0; i < Math.max(l.length, inst.length); i++) {
+                const a = l[i] || 0;
+                const b = inst[i] || 0;
+                if (a > b) return true;
+                if (a < b) return false;
+            }
+            return false;
+        };
+
         const checkUpdate = async () => {
             try {
                 const res = await fetch('https://raw.githubusercontent.com/Kyzenkms/spicetify-jam/main/manifest.json');
                 const data = await res.json();
-                if (data.version && data.version !== CURRENT_VERSION) {
+                if (data.version && isNewerVersion(data.version, CURRENT_VERSION)) {
                     setUpdateAvailable(true);
                     console.log(`[Spicetify Jam] Update available: ${data.version} (installed: ${CURRENT_VERSION})`);
                 }
@@ -329,15 +342,20 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         
         // Attach attribution metadata
         spotifyQueue.forEach(t => {
-            if (t.uri && trackAttribution.current[t.uri]) {
-                t.addedBy = trackAttribution.current[t.uri];
+            const cleanUri = t.uri ? t.uri.split('?')[0] : '';
+            if (cleanUri && trackAttribution.current[cleanUri]) {
+                t.addedBy = trackAttribution.current[cleanUri];
             }
         });
 
         const currentQueue = queueRef.current;
+        const urisChanged = JSON.stringify(spotifyQueue.map(t => t.uri)) !== JSON.stringify(currentQueue.map(t => t.uri));
+        const attrChanged = JSON.stringify(spotifyQueue.map(t => t.addedBy)) !== JSON.stringify(currentQueue.map(t => t.addedBy));
 
-        if (JSON.stringify(spotifyQueue.map(t => t.uri)) !== JSON.stringify(currentQueue.map(t => t.uri))) {
-            setQueue(spotifyQueue);
+        // Always update local state so attribution data is never discarded
+        setQueue(spotifyQueue);
+        // Only broadcast to guests when the queue content actually changed
+        if (urisChanged || attrChanged) {
             broadcast({ type: 'Q', queue: spotifyQueue });
         }
     }, [broadcast]);
@@ -345,7 +363,8 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const addToQueue = useCallback(async (uris: string | string[], addedBy?: Member) => {
         const uriArray = Array.isArray(uris) ? uris : [uris];
         if (refs.current.isHost) {
-            uriArray.forEach(uri => {
+            uriArray.forEach(rawUri => {
+                const uri = (typeof rawUri === 'string' ? rawUri : ((rawUri as any).uri || '')).split('?')[0];
                 if (addedBy) {
                     trackAttribution.current[uri] = { name: addedBy.name, image: addedBy.image };
                 } else if (cachedUser.current) {
@@ -353,7 +372,12 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 }
             });
             try {
-                await Spicetify.addToQueue(uriArray.map(uri => ({ uri })));
+                // Ensure we pass string URIs to native addToQueue
+                const toAdd = uriArray.map(rawUri => {
+                    if (typeof rawUri === 'string') return { uri: rawUri };
+                    return rawUri;
+                });
+                await Spicetify.addToQueue(toAdd);
                 Spicetify.showNotification(uriArray.length > 1 ? `Added ${uriArray.length} tracks!` : 'Added!');
                 // Re-adding a previously removed track un-blocks it
                 uriArray.forEach(u => removedUris.current.delete(u));
@@ -1061,6 +1085,44 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const c = hostConn(); 
             if (c?.open) c.send({ type: 'SYNC' }); 
         }, 15000) : null;
+
+        // Monkeypatch native addToQueue to intercept the UI '+' button
+        const originalAddToQueue = Spicetify.addToQueue;
+        const originalPlayerAdd = (Spicetify as any).Platform?.PlayerAPI?.addToQueue;
+        
+        const interceptAdd = async (uris: any[], orig: any) => {
+            if (refs.current.connected) {
+                if (refs.current.isHost) {
+                    if (cachedUser.current) {
+                        uris.forEach((t: any) => {
+                            const uri = (t.uri || (typeof t === 'string' ? t : '')).split('?')[0];
+                            if (uri && !trackAttribution.current[uri]) {
+                                trackAttribution.current[uri] = { name: cachedUser.current!.name, image: cachedUser.current!.image };
+                            }
+                        });
+                        try { localStorage.setItem('jam_track_attr', JSON.stringify(trackAttribution.current)); } catch {}
+                    }
+                    return orig ? orig.call((Spicetify as any).Platform?.PlayerAPI || Spicetify, uris) : Promise.resolve();
+                } else {
+                    const c = hostConn(); 
+                    if (c?.open) { 
+                        uris.forEach((t: any) => {
+                            const uri = typeof t === 'string' ? t : t.uri;
+                            if (uri) c.send({ type: 'ADD_Q', uri });
+                        });
+                        Spicetify.showNotification(uris.length > 1 ? `Requested ${uris.length} tracks!` : 'Requested!'); 
+                    }
+                    return Promise.resolve();
+                }
+            }
+            return orig ? orig.call((Spicetify as any).Platform?.PlayerAPI || Spicetify, uris) : Promise.resolve();
+        };
+
+        Spicetify.addToQueue = (uris: any[]) => interceptAdd(uris, originalAddToQueue);
+        if ((Spicetify as any).Platform?.PlayerAPI) {
+            (Spicetify as any).Platform.PlayerAPI.addToQueue = (uris: any[]) => interceptAdd(uris, originalPlayerAdd);
+        }
+
         try {
             if (ctxMenuItem.current) { try { ctxMenuItem.current.deregister(); } catch {} }
             ctxMenuItem.current = new (Spicetify as any).ContextMenu.Item(
@@ -1076,6 +1138,10 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             Spicetify.Player.removeEventListener('onplaypause', onPP); 
             if (qi) clearInterval(qi); 
             if (driftI) clearInterval(driftI); 
+            Spicetify.addToQueue = originalAddToQueue;
+            if ((Spicetify as any).Platform?.PlayerAPI) {
+                (Spicetify as any).Platform.PlayerAPI.addToQueue = originalPlayerAdd;
+            }
             try { ctxMenuItem.current?.deregister(); } catch {} 
         };
     }, [connected, isHost, broadcast, refreshQueue, addToQueue, hostConn, playNextInJamQueue]);
@@ -1084,6 +1150,9 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // Crash Recovery: If Spicetify was force-closed during an active Jam, 
         // clean up the orphaned tracks from the native queue.
         try {
+            const attrStr = localStorage.getItem('jam_track_attr');
+            if (attrStr) trackAttribution.current = JSON.parse(attrStr);
+            
             const crashedQueueStr = localStorage.getItem('jam_crash_queue');
             if (crashedQueueStr) {
                 const crashedQueue: TrackInfo[] = JSON.parse(crashedQueueStr);

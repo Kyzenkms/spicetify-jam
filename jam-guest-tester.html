@@ -1,0 +1,197 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Spicetify Jam - Guest Tester</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0a0a0a;--surface:#141414;--surface2:#1c1c1c;--green:#1db954;--green-dim:rgba(29,185,84,.15);--red:#e84444;--red-dim:rgba(232,68,68,.12);--text:#fff;--text-dim:rgba(255,255,255,.4);--border:rgba(255,255,255,.07)}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:20px;width:100%;max-width:540px;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,.6)}
+.card-header{padding:24px 24px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px;background:rgba(255,255,255,.02)}
+.logo{width:44px;height:44px;background:linear-gradient(135deg,#1db954,#1ed760);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 4px 16px rgba(29,185,84,.4);flex-shrink:0}
+.card-header h1{font-size:17px;font-weight:800}
+.card-header p{font-size:12px;color:var(--text-dim);margin-top:2px}
+.status-bar{padding:10px 24px;font-size:12px;font-weight:700;display:flex;align-items:center;gap:8px;background:var(--surface2);border-bottom:1px solid var(--border);transition:all .3s}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--text-dim);transition:background .3s;flex-shrink:0}
+.status-bar.connected .status-dot{background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 2s ease infinite}
+.status-bar.error .status-dot{background:var(--red)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.body{padding:20px 24px;display:flex;flex-direction:column;gap:16px}
+.field label{display:block;font-size:11px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.8px;margin-bottom:7px}
+.input-row{display:flex;gap:8px}
+input{flex:1;background:rgba(255,255,255,.04);border:1.5px solid var(--border);border-radius:10px;color:var(--text);font-size:14px;font-weight:700;font-family:inherit;padding:11px 14px;letter-spacing:1.5px;text-transform:uppercase;outline:none;transition:border-color .2s,background .2s}
+input.name-input{letter-spacing:normal;text-transform:none}
+input:focus{border-color:rgba(29,185,84,.5);background:rgba(255,255,255,.06)}
+.btn{padding:11px 20px;border:none;border-radius:10px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;transition:all .2s;white-space:nowrap;display:flex;align-items:center;gap:6px}
+.btn-green{background:linear-gradient(135deg,#1db954,#1ed760);color:#000}
+.btn-green:hover{filter:brightness(1.1);transform:translateY(-1px)}
+.btn-green:disabled{opacity:.4;cursor:not-allowed;transform:none;filter:none}
+.btn-red{background:var(--red-dim);color:var(--red);border:1.5px solid rgba(232,68,68,.25)}
+.btn-red:hover{background:var(--red);color:#fff;border-color:transparent}
+.section-title{font-size:11px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.8px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+.np-card{background:var(--green-dim);border:1px solid rgba(29,185,84,.2);border-radius:12px;padding:14px;display:flex;align-items:center;gap:12px}
+.np-art{width:52px;height:52px;border-radius:8px;background:rgba(255,255,255,.08);flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:20px}
+.np-art img{width:100%;height:100%;object-fit:cover}
+.np-title{font-size:14px;font-weight:700}
+.np-artist{font-size:12px;color:var(--text-dim);margin-top:2px}
+.np-badge{font-size:10px;font-weight:700;color:var(--green);margin-top:4px}
+.queue-list{display:flex;flex-direction:column;gap:6px;max-height:240px;overflow-y:auto}
+.queue-list::-webkit-scrollbar{width:4px}
+.queue-list::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:2px}
+.q-item{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:8px;padding:10px 12px;display:flex;align-items:center;gap:10px}
+.q-num{font-size:11px;color:var(--text-dim);font-weight:700;min-width:18px;text-align:center}
+.q-thumb{width:36px;height:36px;border-radius:5px;background:rgba(255,255,255,.07);flex-shrink:0;overflow:hidden}
+.q-thumb img{width:100%;height:100%;object-fit:cover}
+.q-meta{flex:1;min-width:0}
+.q-title{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.q-artist{font-size:11px;color:var(--text-dim)}
+.q-by{width:24px;height:24px;border-radius:50%;background:rgba(29,185,84,.2);overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--green);flex-shrink:0;border:1px solid rgba(29,185,84,.4)}
+.q-by img{width:100%;height:100%;object-fit:cover}
+.members-row{display:flex;flex-wrap:wrap;gap:8px}
+.member-chip{display:flex;align-items:center;gap:7px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:20px;padding:5px 12px 5px 5px;font-size:12px;font-weight:600}
+.member-pfp{width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,.1);overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:11px}
+.member-pfp img{width:100%;height:100%;object-fit:cover}
+.member-chip.host{border-color:rgba(29,185,84,.3);color:var(--green)}
+.controls{display:flex;gap:8px;justify-content:center}
+.ctrl-btn{width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--text);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.ctrl-btn:hover{background:rgba(255,255,255,.12)}
+.ctrl-btn.play{width:52px;height:52px;background:var(--green);color:#000;border:none;font-size:20px}
+.ctrl-btn.play:hover{filter:brightness(1.1)}
+.progress-wrap{display:flex;align-items:center;gap:10px}
+.progress-bar{flex:1;height:4px;background:rgba(255,255,255,.1);border-radius:2px}
+.progress-fill{height:100%;background:var(--green);border-radius:2px;transition:width 1s linear}
+.time{font-size:11px;color:var(--text-dim);font-variant-numeric:tabular-nums}
+.log-box{background:rgba(0,0,0,.4);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:11px;font-family:'Courier New',monospace;color:rgba(255,255,255,.5);max-height:160px;overflow-y:auto;display:flex;flex-direction:column;gap:3px}
+.log-box::-webkit-scrollbar{width:4px}
+.log-box::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:2px}
+.log-line{display:flex;gap:8px}
+.log-time{color:rgba(255,255,255,.25);flex-shrink:0}
+.log-ok{color:#1db954}
+.log-err{color:#e84444}
+.log-info{color:rgba(255,255,255,.55)}
+.hidden{display:none!important}
+.ping-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(255,255,255,.07);color:var(--text-dim)}
+.ping-badge.good{background:rgba(29,185,84,.12);color:var(--green)}
+.ping-badge.bad{background:rgba(232,68,68,.12);color:var(--red)}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="card-header">
+    <div class="logo">🎵</div>
+    <div>
+      <h1>Spicetify Jam - Guest Tester</h1>
+      <p>Connect to a host &amp; debug attribution outside Spicetify</p>
+    </div>
+  </div>
+  <div class="status-bar" id="statusBar">
+    <div class="status-dot"></div>
+    <span id="statusText">Not connected</span>
+    <span id="pingBadge" class="ping-badge hidden"></span>
+  </div>
+  <div class="body">
+    <div id="joinSection">
+      <div class="field">
+        <label>Your name</label>
+        <input class="name-input" id="myName" type="text" placeholder="Guest Tester" maxlength="30"/>
+      </div>
+      <div class="field">
+        <label>Jam ID (Check active ID in Spotify Jam UI)</label>
+        <div class="input-row">
+          <input id="jamIdInput" type="text" placeholder="XXXXXX" maxlength="10"/>
+          <button class="btn btn-green" id="joinBtn">Join</button>
+        </div>
+      </div>
+    </div>
+    <div id="npSection" class="hidden">
+      <div class="section-title">Now Playing</div>
+      <div class="np-card">
+        <div class="np-art" id="npArt">🎵</div>
+        <div style="min-width:0">
+          <div class="np-title" id="npTitle">—</div>
+          <div class="np-artist" id="npArtist">—</div>
+          <div class="np-badge" id="npHost"></div>
+        </div>
+      </div>
+      <div class="progress-wrap" style="margin-top:10px">
+        <span class="time" id="timeCurrent">0:00</span>
+        <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+        <span class="time" id="timeTotal">0:00</span>
+      </div>
+      <div class="controls" style="margin-top:12px">
+        <button class="ctrl-btn" id="prevBtn">&#9198;</button>
+        <button class="ctrl-btn play" id="playBtn">&#9654;</button>
+        <button class="ctrl-btn" id="nextBtn">&#9197;</button>
+      </div>
+      <div style="text-align:center;font-size:11px;color:var(--text-dim);margin-top:6px" id="gctrlNote">Controls locked by host</div>
+    </div>
+    <div id="membersSection" class="hidden">
+      <div class="section-title">Members</div>
+      <div class="members-row" id="membersRow"></div>
+    </div>
+    <div id="queueSection" class="hidden">
+      <div class="section-title">Jam Queue (<span id="qCount">0</span>)</div>
+      <div class="queue-list" id="queueList"></div>
+    </div>
+    <div id="leaveRow" class="hidden">
+      <button class="btn btn-red" id="leaveBtn" style="width:100%;justify-content:center">Leave Jam</button>
+    </div>
+    <div>
+      <div class="section-title" style="margin-bottom:8px">Connection Log</div>
+      <div class="log-box" id="logBox"></div>
+    </div>
+  </div>
+</div>
+<script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js"></script>
+<script>
+function ICE(){
+  return[
+    {urls:'stun:stun.l.google.com:19302'},
+    {urls:'stun:stun.relay.metered.ca:80'},
+    {urls:'turn:global.relay.metered.ca:80',username:'94458f086148dec1462e0426',credential:'FZ7jHqVwCJ71wV35'},
+    {urls:'turn:global.relay.metered.ca:80?transport=tcp',username:'94458f086148dec1462e0426',credential:'FZ7jHqVwCJ71wV35'},
+    {urls:'turn:global.relay.metered.ca:443',username:'94458f086148dec1462e0426',credential:'FZ7jHqVwCJ71wV35'},
+    {urls:'turns:global.relay.metered.ca:443?transport=tcp',username:'94458f086148dec1462e0426',credential:'FZ7jHqVwCJ71wV35'},
+    {urls:'turn:103.165.11.129:3478',username:'kyzenjam',credential:'KyzenJamPass2026!'},
+    {urls:'turn:103.165.11.129:3478?transport=tcp',username:'kyzenjam',credential:'KyzenJamPass2026!'}
+  ];
+}
+var PEER_CONFIG={
+  host: '0.peerjs.com',
+  port: 443,
+  path: '/',
+  key: 'peerjs',
+  secure: true,
+  config:{iceServers:ICE(),iceCandidatePoolSize:10},
+  debug:2
+};
+var peer=null,conn=null,pingInterval=null,progressTicker=null;
+var progress=0,duration=0,isPlaying=false,guestControls=false;
+function ge(id){return document.getElementById(id);}
+function log(msg,type){type=type||'info';var line=document.createElement('div');line.className='log-line';var t=new Date().toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});line.innerHTML='<span class="log-time">'+t+'</span><span class="log-'+type+'">'+msg+'</span>';ge('logBox').appendChild(line);ge('logBox').scrollTop=ge('logBox').scrollHeight;}
+function setStatus(text,cls){ge('statusText').textContent=text;ge('statusBar').className='status-bar '+(cls||'');}
+function fmtTime(ms){var s=Math.floor(ms/1000),m=Math.floor(s/60);return m+':'+(s%60<10?'0':'')+(s%60);}
+function updateProgressUI(){ge('timeCurrent').textContent=fmtTime(progress);ge('timeTotal').textContent=fmtTime(duration);var pct=duration>0?progress/duration*100:0;ge('progressFill').style.width=pct+'%';}
+function startTick(){if(progressTicker)clearInterval(progressTicker);progressTicker=setInterval(function(){if(!isPlaying)return;progress=Math.min(progress+1000,duration);updateProgressUI();},1000);}
+function updateNP(np,host){if(!np)return;ge('npTitle').textContent=np.title||'--';ge('npArtist').textContent=np.artist||'--';if(host)ge('npHost').textContent='Hosted by '+host;var art=ge('npArt');if(np.artUrl){art.innerHTML='<img src="'+np.artUrl+'" onerror="this.style.display=\'none\'"/>';}else{art.textContent='🎵';}}
+function renderQueue(queue){var list=ge('queueList');ge('qCount').textContent=queue.length;if(!queue.length){list.innerHTML='<div style="text-align:center;color:rgba(255,255,255,.25);font-size:12px;padding:16px 0">Queue is empty</div>';return;}var html='';for(var i=0;i<queue.length;i++){var t=queue[i];var byHtml=t.addedBy?'<div class="q-by" title="Added by '+t.addedBy.name+'">'+(t.addedBy.image?'<img src="'+t.addedBy.image+'"/>':(t.addedBy.name||'?').charAt(0).toUpperCase())+'</div>':'';var thumbHtml=t.artUrl?'<div class="q-thumb"><img src="'+t.artUrl+'" onerror="this.style.display=\'none\'"/></div>':'<div class="q-thumb"></div>';html+='<div class="q-item"><div class="q-num">'+(i+1)+'</div>'+thumbHtml+'<div class="q-meta"><div class="q-title">'+(t.title||'?')+'</div><div class="q-artist">'+(t.artist||'?')+'</div></div>'+byHtml+'</div>';}list.innerHTML=html;}
+function renderMembers(members){var html='';for(var i=0;i<members.length;i++){var m=members[i];var pfp=m.image?'<div class="member-pfp"><img src="'+m.image+'"/></div>':'<div class="member-pfp">'+(m.name||'?').charAt(0)+'</div>';html+='<div class="member-chip'+(m.isHost?' host':'')+'">'+pfp+m.name+(m.isHost?' 👑':'')+'</div>';}ge('membersRow').innerHTML=html;}
+function send(data){if(conn&&conn.open)conn.send(data);}
+function updateControls(gc){guestControls=!!gc;ge('gctrlNote').textContent=gc?'':'Controls locked by host';ge('prevBtn').disabled=!gc;ge('nextBtn').disabled=!gc;ge('playBtn').disabled=!gc;}
+function onData(d){log('&larr; '+d.type,'ok');switch(d.type){case 'INIT':if(d.np)updateNP(d.np,d.host);if(d.queue)renderQueue(d.queue);if(d.members)renderMembers(d.members);if(d.gc!==undefined)updateControls(d.gc);if(d.playing!==undefined){isPlaying=d.playing;ge('playBtn').innerHTML=isPlaying?'&#9646;&#9646;':'&#9654;';}if(d.progress!==undefined)progress=d.progress;if(d.duration!==undefined)duration=d.duration;updateProgressUI();log('INIT OK - host: '+d.host,'ok');break;case 'PLAY':if(d.np)updateNP(d.np);isPlaying=!d.paused;ge('playBtn').innerHTML=isPlaying?'&#9646;&#9646;':'&#9654;';if(d.pos!==undefined){var delay=Date.now()-(d.ts||Date.now());progress=d.pos+delay;}updateProgressUI();break;case 'PAUSE':isPlaying=false;ge('playBtn').innerHTML='&#9654;';break;case 'PS':isPlaying=!!d.p;ge('playBtn').innerHTML=isPlaying?'&#9646;&#9646;':'&#9654;';if(d.pos!==undefined)progress=d.pos;if(d.dur!==undefined)duration=d.dur;updateProgressUI();break;case 'Q':renderQueue(d.queue);var unattr=d.queue.filter(function(t){return!t.addedBy;}).length;if(unattr>0)log('WARNING: '+unattr+' tracks missing addedBy','err');else if(d.queue.length>0)log('All '+d.queue.length+' tracks have attribution!','ok');break;case 'MEMBERS':renderMembers(d.members);break;case 'GCTRL':updateControls(d.on);break;case 'KICK':log('Kicked!','err');disconnect();break;case 'PONG':var ms=Date.now()-d.ts;var pb=ge('pingBadge');pb.textContent=ms+'ms';pb.className='ping-badge '+(ms<150?'good':'bad');pb.classList.remove('hidden');break;}}
+ge('prevBtn').onclick=function(){if(guestControls)send({type:'CMD',a:'back'});};
+ge('nextBtn').onclick=function(){if(guestControls)send({type:'CMD',a:'next'});};
+ge('playBtn').onclick=function(){if(!guestControls)return;if(isPlaying){send({type:'CMD',a:'pause'});isPlaying=false;ge('playBtn').innerHTML='&#9654;';}else{send({type:'CMD',a:'play'});isPlaying=true;ge('playBtn').innerHTML='&#9646;&#9646;';}};
+ge('joinBtn').onclick=function(){var jamId=ge('jamIdInput').value.trim().toUpperCase();var name=ge('myName').value.trim()||'Guest Tester';if(!jamId){log('Enter a Jam ID','err');return;}ge('joinBtn').disabled=true;setStatus('Connecting...');log('Connecting to: '+jamId,'info');if(!window.Peer){log('PeerJS script not loaded','err');ge('joinBtn').disabled=false;return;}if(peer){try{peer.destroy();}catch(e){}}peer=new Peer(PEER_CONFIG);peer.on('open',function(myId){log('My peer ID: '+myId,'info');conn=peer.connect(jamId,{reliable:true});var timeout=setTimeout(function(){log('Timed out (20s) - Verify Jam ID in Spotify!','err');setStatus('Timed out','error');ge('joinBtn').disabled=false;try{peer.destroy();}catch(e){}},20000);conn.on('open',function(){clearTimeout(timeout);log('Connected to host!','ok');setStatus('Connected to Jam','connected');conn.send({type:'JOIN',name:name,image:''});log('Sent JOIN as: '+name,'ok');ge('joinSection').classList.add('hidden');ge('npSection').classList.remove('hidden');ge('membersSection').classList.remove('hidden');ge('queueSection').classList.remove('hidden');ge('leaveRow').classList.remove('hidden');pingInterval=setInterval(function(){send({type:'PING',ts:Date.now()});},5000);send({type:'PING',ts:Date.now()});startTick();setTimeout(function(){send({type:'SYNC'});},2000);});conn.on('data',onData);conn.on('close',function(){log('Disconnected by host','err');setStatus('Disconnected','error');cleanup();});conn.on('error',function(e){log('Conn error: '+(e.type||e),'err');setStatus('Error: '+(e.type||e),'error');ge('joinBtn').disabled=false;});});peer.on('error',function(e){log('Peer error: '+(e.type||e),'err');if(e.type==='peer-unavailable')log('Host Jam ID "'+jamId+'" not found! Is Jam active in Spotify?','err');setStatus('Error: '+(e.type||e),'error');ge('joinBtn').disabled=false;});};
+function cleanup(){if(pingInterval)clearInterval(pingInterval);if(progressTicker)clearInterval(progressTicker);pingInterval=null;progressTicker=null;ge('joinBtn').disabled=false;ge('pingBadge').classList.add('hidden');}
+function disconnect(){cleanup();try{if(conn)conn.close();}catch(e){}try{if(peer)peer.destroy();}catch(e){}conn=null;peer=null;setStatus('Not connected');ge('joinSection').classList.remove('hidden');ge('npSection').classList.add('hidden');ge('membersSection').classList.add('hidden');ge('queueSection').classList.add('hidden');ge('leaveRow').classList.add('hidden');}
+ge('leaveBtn').onclick=disconnect;
+var sn=localStorage.getItem('jam_tester_name');if(sn)ge('myName').value=sn;ge('myName').addEventListener('blur',function(){localStorage.setItem('jam_tester_name',ge('myName').value);});
+log('Ready. Official Metered.ca + VPS TURN configured.','info');
+</script>
+</body>
+</html>
