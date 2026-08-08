@@ -1,52 +1,62 @@
 <div align="center">
-  <img src="https://raw.githubusercontent.com/Kyzenkms/spicetify-jam/main/assets/logo.png" alt="Spicetify Jam Banner" width="100%" />
+  <img src="https://capsule-render.vercel.app/api?type=waving&color=1db954&height=120&section=header&animation=fadeIn" width="100%" alt="header wave" />
+  <br />
+  <img src="https://raw.githubusercontent.com/Kyzenkms/spicetify-jam/main/assets/logo.png" alt="Spicetify Jam Logo" width="220" />
 
-  <h1>🎵 Spicetify Jam</h1>
-  <p><b>Real-time social listening sessions for Spotify (via Spicetify)</b></p>
-  
-  <p>
-    <img src="https://img.shields.io/badge/version-1.3.0-1db954?style=for-the-badge&logo=spotify" alt="Version 1.3.0" />
-    <img src="https://img.shields.io/badge/spicetify-custom%20app-1db954?style=for-the-badge" alt="Spicetify Custom App" />
-    <img src="https://img.shields.io/badge/license-MIT-blue?style=for-the-badge" alt="License" />
-    <img src="https://img.shields.io/endpoint?url=https://kyzen-vps-new.tail9c3971.ts.net/jam/shields&style=for-the-badge&logo=spotify" alt="Daily users" />
-    <img src="https://img.shields.io/endpoint?url=https://kyzen-vps-new.tail9c3971.ts.net/jam/total-shields&style=for-the-badge&logo=spotify&label=total%20users" alt="Total users" />
-  </p>
+  <br /><br />
+
+  <img src="https://readme-typing-svg.demolab.com?font=Inter&weight=600&size=20&duration=3000&pause=1000&color=1DB954&center=true&vCenter=true&repeat=true&width=520&height=40&lines=Listen+to+Spotify+together+in+real-time;Perfect+playback+sync+%E2%80%94+shared+queue+%E2%80%94+guest+controls;Host+listening+parties+right+inside+Spotify!" alt="Typing Subtitle" />
+
+  <br /><br />
+
+  <a href="https://github.com/Kyzenkms/spicetify-jam/releases">
+    <img src="https://img.shields.io/badge/version-1.3.0-1db954?style=flat-square&logo=spotify&logoColor=white" alt="Version" />
+  </a>
+  <a href="https://spicetify.app">
+    <img src="https://img.shields.io/badge/built%20for-spicetify-1db954?style=flat-square" alt="Spicetify" />
+  </a>
+  <img src="https://img.shields.io/endpoint?url=https://103-165-11-129.sslip.io/jam/shields&style=flat-square&logo=spotify&logoColor=white" alt="Daily Active Users" />
+  <img src="https://img.shields.io/endpoint?url=https://103-165-11-129.sslip.io/jam/total-shields&style=flat-square&logo=spotify&logoColor=white&label=total%20users" alt="Total Users" />
+  <a href="LICENSE">
+    <img src="https://img.shields.io/badge/license-MIT-444?style=flat-square" alt="License" />
+  </a>
+
+  <br /><br />
+
+  <a href="#features">Features</a> &nbsp;•&nbsp;
+  <a href="#installation">Installation</a> &nbsp;•&nbsp;
+  <a href="#how-to-use">How to use</a> &nbsp;•&nbsp;
+  <a href="#updating">Updating</a> &nbsp;•&nbsp;
+  <a href="#troubleshooting">Troubleshooting</a>
+
+  <br /><br />
 </div>
 
-<br />
+<img src="https://capsule-render.vercel.app/api?type=rect&color=1db954&height=2&width=100%" width="100%" alt="divider" />
 
-**Spicetify Jam** lets you listen together with friends in real-time, syncing playback and sharing a fully collaborative queue right inside Spotify.
+## Features
 
-Desktop only: this is a Spicetify **custom app** for the Spotify desktop client on Windows, macOS, and Linux. It does not run on the Spotify mobile app.
+<div align="center">
 
-## 🔗 Quick Links
+| | Feature | Description |
+|:---:|---|---|
+| 🎵 | **Perfect Playback Sync** | Listen together at the exact same second — when the host plays, pauses, or skips, everyone stays in tune |
+| 🎶 | **Shared Party Queue** | Build the vibe together — anyone can add songs, remove tracks, or drag-and-drop to reorder live |
+| 🎙️ | **Pass the Aux (Guest Controls)** | Host can grant control to friends so anyone can control the music |
+| 👥 | **Live Friend Avatars** | See who's in the room with real Spotify profile pictures and live presence |
+| 📌 | **Mini Player Widget** | A sleek floating widget keeping you connected to the Jam even when the sidebar is minimized |
+| ⚡ | **Instant Room Invites** | Invite friends in seconds using a 6-letter room code, QR code, or shareable link |
+| 🔄 | **Seamless Auto-Sync** | Automatically keeps everyone in sync without pausing or interrupting the music |
 
-- [✨ Features](#features)
-- [📦 Installation](#-installation)
-- [🔄 Updating](#-updating)
-- [🎮 How to Use](#-how-to-use)
-- [🔧 Troubleshooting](#-troubleshooting)
+</div>
 
----
+<img src="https://capsule-render.vercel.app/api?type=rect&color=1db954&height=2&width=100%" width="100%" alt="divider" />
 
-## ✨ Features
-
-- 🎧 **Listen Together**: Sync playback exactly. When the host skips, everyone skips.
-- 📱 **Luxury Sidebar UI**: An integrated, right-panel interface matching Spotify's native look with beautiful design.
-- 🔁 **Instant Resume-to-Sync**: If you pause and resume, it instantly auto-matches the host's current timestamp.
-- 📋 **Live Shared Queue**: Add, remove, and drag-and-drop tracks to reorder.
-- 📸 **Real Profiles**: Displays actual Spotify Profile Pictures automatically for everyone in the session.
-- 🕹️ **Guest Remote Control**: Host can optionally allow guests to control playback directly.
-- ⏱️ **Auto-Drift Correction**: Actively fixes de-syncs behind the scenes so nobody falls behind.
-- 🔗 **Easy Joins**: Join via 6-character code, QR code, or one-click join link.
-
----
-
-## 📦 Installation
+## Installation
 
 ### Quick Install (Recommended)
 
-Just run the one-liner for your OS. It downloads the latest built extension and configures Spicetify.
+Just run this. It downloads the latest build and sets everything up automatically.
 
 **Windows (PowerShell):**
 ```powershell
@@ -64,11 +74,12 @@ That's it. Restart Spotify and look for the 🎵 icon in the player bar.
 
 ### Manual Install (Developers)
 
-If you prefer to do it yourself or want to contribute code:
+**Requirements:** [Git](https://git-scm.com/downloads) · [Node.js v18+](https://nodejs.org/) · [Spicetify](https://spicetify.app/)
 
-**Prerequisites:** [Git](https://git-scm.com/downloads), [Node.js](https://nodejs.org/) (v18+), [Spicetify](https://spicetify.app/)
+> **Windows:** Restart PowerShell after installing Git and Node.js.
 
-**Windows:**
+**Windows**
+
 ```powershell
 git clone https://github.com/Kyzenkms/spicetify-jam
 cd spicetify-jam
@@ -78,7 +89,8 @@ spicetify config extensions spicetify-jam.js
 spicetify apply
 ```
 
-**Linux / macOS:**
+**Linux / macOS**
+
 ```bash
 git clone https://github.com/Kyzenkms/spicetify-jam
 cd spicetify-jam
@@ -88,75 +100,75 @@ spicetify config extensions spicetify-jam.js
 spicetify apply
 ```
 
----
+<img src="https://capsule-render.vercel.app/api?type=rect&color=1db954&height=2&width=100%" width="100%" alt="divider" />
 
-## 🔄 Updating
+## Updating
 
-Just run the same install command again — it downloads the latest build and updates in place.
+From inside the `spicetify-jam` folder:
 
-**Windows:**
-```powershell
-irm https://raw.githubusercontent.com/Kyzenkms/spicetify-jam/main/install.ps1 | iex
-```
-
-**Linux / macOS:**
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Kyzenkms/spicetify-jam/main/install.sh)
-```
-
-Or update manually by copying `dist/spicetify-jam.js` into your Spicetify `Extensions` folder, then run:
-```bash
+git pull
+npm install
+npm run build
 spicetify apply
 ```
 
----
+<img src="https://capsule-render.vercel.app/api?type=rect&color=1db954&height=2&width=100%" width="100%" alt="divider" />
 
-## 🎮 How to Use
+## How to use
 
-### As a Host
-1. Open Spotify and click the **Jam icon** on the bottom-right of your player bar.
-2. The Jam Sidebar will slide open. Click **Start a new Jam**.
-3. Share the **6-character Session ID**, the **QR Code**, or the **Join Link** with your friends.
-4. Add songs to the queue natively through Spotify by right-clicking a track and selecting **"Add to Jam"**, or control it directly from the sidebar.
+**As a host**
 
-### As a Guest
-1. Open Spotify and click the **Jam icon** in your player bar.
-2. Enter the host's **Session ID** or click their **Join Link**.
-3. Sit back and enjoy! You are now strictly synced to the host. If you pause, the extension will let you know you're falling behind. Hitting play again will instantly jump you to the correct live playback time.
+1. Click the **Jam icon** in the bottom-right of the Spotify player bar.
+2. Click **Start a new Jam** in the sidebar.
+3. Share your **Session ID**, **QR code**, or **join link** with friends.
+4. Add songs via the sidebar or by right-clicking a track in Spotify and selecting **Add to Jam**.
 
----
+**As a guest**
 
-## 🔧 Troubleshooting
+1. Click the **Jam icon** in the player bar.
+2. Enter the host's **Session ID** or open their join link.
+3. Playback syncs automatically. Resuming after a pause jumps you straight to the live position.
 
-### ❌ "Connection timed out" when joining a Jam
+<img src="https://capsule-render.vercel.app/api?type=rect&color=1db954&height=2&width=100%" width="100%" alt="divider" />
 
-Spicetify Jam uses **WebRTC P2P** to connect you directly to the host. This can time out when one or both users are behind a **strict NAT** (common on university/corporate networks, some ISPs, or mobile carrier-grade NAT).
+## Troubleshooting
 
-**Try these fixes:**
+**"Connection timed out" when joining**
 
-1. ✅ **Switch to a mobile hotspot** — mobile data networks usually have more permissive NAT and this fixes it most of the time
-2. ✅ **Use a VPN** — if either the host or guest connects via a VPN, it typically bypasses the NAT restriction
-3. ✅ **Try on a home network** instead of school, work, or public Wi-Fi
-4. ✅ Make sure **both users have the latest version** installed — older builds had fewer TURN relay fallbacks
+Spicetify Jam uses WebRTC (P2P) to connect directly between users. Strict NAT — common on university, corporate, or mobile carrier networks — can block this.
 
-### ❌ The Jam icon doesn't appear in Spotify
+- Switch to a mobile hotspot
+- Use a VPN
+- Use a home network instead of public or institutional Wi-Fi
+- Make sure both users are on the latest version
 
-Run `spicetify apply` again. If it still doesn't show:
-```
+**The Jam icon doesn't appear after install**
+
+Run `spicetify apply` again, or try:
+
+```bash
 spicetify restore apply
 ```
+
 Then restart Spotify.
 
-### ❌ `spicetify` is not recognized
+**`npm` or `git` is not recognized**
 
-Install **[Spicetify](https://spicetify.app/)** first. After installing, restart your terminal so the new command is recognized.
+Install [Node.js](https://nodejs.org/) and [Git](https://git-scm.com/downloads), then restart your terminal.
 
----
+<img src="https://capsule-render.vercel.app/api?type=rect&color=1db954&height=2&width=100%" width="100%" alt="divider" />
 
-## 🤝 Contributing
+## Contributing
 
-Found a bug or want to suggest a feature? Feel free to open an Issue!
+Found a bug or have a suggestion? [Open an issue](https://github.com/Kyzenkms/spicetify-jam/issues) — contributions are welcome.
 
-## 📄 License
+## License
 
-This project is licensed under the MIT License. See the `LICENSE` file for details.
+MIT — see [`LICENSE`](LICENSE) for details.
+
+<br />
+
+<div align="center">
+  <img src="https://capsule-render.vercel.app/api?type=waving&color=1db954&height=100&section=footer&animation=fadeIn" width="100%" alt="footer" />
+</div>
