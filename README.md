@@ -27,6 +27,7 @@
   <a href="#installation">Installation</a> &nbsp;•&nbsp;
   <a href="#how-to-use">How to use</a> &nbsp;•&nbsp;
   <a href="#updating">Updating</a> &nbsp;•&nbsp;
+  <a href="#uninstalling">Uninstalling</a> &nbsp;•&nbsp;
   <a href="#troubleshooting">Troubleshooting</a>
 
   <br /><br />
@@ -131,6 +132,33 @@ spicetify apply
 3. Playback syncs automatically. Resuming after a pause jumps you straight to the live position.
 
 <img src="https://capsule-render.vercel.app/api?type=rect&color=1db954&height=2&width=100%" width="100%" alt="divider" />
+
+## Uninstalling
+
+### Quick Uninstall (Recommended)
+
+**Windows (PowerShell):**
+```powershell
+irm https://raw.githubusercontent.com/Kyzenkms/spicetify-jam/main/uninstall.ps1 | iex
+```
+
+**Linux / macOS:**
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/Kyzenkms/spicetify-jam/main/uninstall.sh)
+```
+
+---
+
+### Manual Uninstall
+
+```bash
+spicetify config extensions spicetify-jam.js-
+spicetify apply
+```
+
+Then delete the extension file from your Extensions folder.
+
+---
 
 ## Troubleshooting
 
