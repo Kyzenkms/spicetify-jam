@@ -10,7 +10,7 @@
   <br /><br />
 
   <a href="https://github.com/Kyzenkms/spicetify-jam/releases">
-    <img src="https://img.shields.io/badge/version-1.3.0-1db954?style=flat-square&logo=spotify&logoColor=white" alt="Version" />
+    <img src="https://img.shields.io/badge/version-1.4.0-1db954?style=flat-square&logo=spotify&logoColor=white" alt="Version" />
   </a>
   <a href="https://spicetify.app">
     <img src="https://img.shields.io/badge/built%20for-spicetify-1db954?style=flat-square" alt="Spicetify" />

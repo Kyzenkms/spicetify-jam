@@ -17,29 +17,27 @@ interface JamState {
     play: () => void; pause: () => void; next: () => void; prev: () => void;
 }
 
-const _h=[107,121,122,101,110,102,114,46,109,101,116,101,114,101,100,46,108,105,118,101];
-const _u=[53,54,55,49,97,49,50,48,51,54,51,56,101,97,52,50,51,52,98,55,97,54,51,49];
-const _c=[108,75,86,107,108,103,102,47,99,104,71,66,84,89,55,86];
-const _rh=()=>String.fromCharCode(..._h);
-const _ru=()=>String.fromCharCode(..._u);
-const _rc=()=>String.fromCharCode(..._c);
-const _ice=()=>{const h=_rh(),u=_ru(),c=_rc();return[
-    {urls:'stun:stun.l.google.com:19302'},
-    {urls:'stun:stun1.l.google.com:19302'},
-    {urls:'stun:stun2.l.google.com:19302'},
-    {urls:'stun:stun3.l.google.com:19302'},
-    {urls:'stun:stun4.l.google.com:19302'},
-    {urls:'stun:stun.cloudflare.com:3478'},
-    {urls:`turn:${h}:80`,username:u,credential:c},
-    {urls:`turn:${h}:80?transport=udp`,username:u,credential:c},
-    {urls:`turn:${h}:443`,username:u,credential:c},
-    {urls:`turn:${h}:443?transport=tcp`,username:u,credential:c},
-    {urls:`turns:${h}:443`,username:u,credential:c},
-    {urls:`turns:${h}:443?transport=tcp`,username:u,credential:c},
-    {urls:'turn:openrelay.metered.ca:80',username:'openrelayproject',credential:'openrelayproject'},
-    {urls:'turn:freestun.net:3479',username:'free',credential:'free'},
-];};
-const PEER_CONFIG={config:{iceServers:_ice(),iceCandidatePoolSize:10},debug:0};
+// WebRTC ICE servers: Fast STUN + Dedicated Metered TURN Relay + OpenRelay fallback
+const _ice = () => [
+    // 1. Direct P2P STUN Hole-punching
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun.cloudflare.com:3478' },
+    { urls: 'stun:stun.relay.metered.ca:80' },
+
+    // 2. Dedicated Metered TURN Relay (Primary)
+    { urls: 'turn:global.relay.metered.ca:80', username: '5671a1203638ea4234b7a631', credential: 'lKVklgf/chGBTY7V' },
+    { urls: 'turn:global.relay.metered.ca:80?transport=tcp', username: '5671a1203638ea4234b7a631', credential: 'lKVklgf/chGBTY7V' },
+    { urls: 'turn:global.relay.metered.ca:443', username: '5671a1203638ea4234b7a631', credential: 'lKVklgf/chGBTY7V' },
+    { urls: 'turns:global.relay.metered.ca:443?transport=tcp', username: '5671a1203638ea4234b7a631', credential: 'lKVklgf/chGBTY7V' },
+
+    // 3. Permanent OpenRelay Fallback
+    { urls: 'turn:openrelay.metered.ca:80?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turns:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+];
+const PEER_CONFIG = { config: { iceServers: _ice(), iceCandidatePoolSize: 10 }, debug: 0 };
 
 const fmtImg = (u?: string): string => {
     if (!u) return '';
@@ -188,7 +186,29 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const memberRegistry = useRef<Map<string, {name: string, image: string}>>(new Map());
     const cachedUser = useRef<{ name: string; image: string }>({ name: 'Listener', image: '' });
     const userPromise = useRef<Promise<{ name: string; image: string }> | null>(null);
-    const refs = useRef({ isHost: false, connected: false, guestControls: false, jamId: '', targetUri: null as string | null, ignoreNextSongChange: false, ignoreNextOnPP: false, isPlaying: false, forcingPause: false, lastProgress: 0, lastDuration: 0, remotePlayTs: 0, lastSyncRequestTs: 0, lastSyncAppliedTs: 0, sessionPinged: false });
+    const refs = useRef({
+        isHost: false,
+        connected: false,
+        guestControls: false,
+        jamId: '',
+        targetUri: null as string | null,
+        ignoreNextSongChange: false,
+        ignoreNextOnPP: false,
+        isPlaying: false,
+        forcingPause: false,
+        lastProgress: 0,
+        lastDuration: 0,
+        remotePlayTs: 0,
+        lastSyncRequestTs: 0,
+        lastSyncAppliedTs: 0,
+        sessionPinged: false,
+        // Enhanced sync & micro-drift smoothing
+        lastHostProgress: 0,
+        lastHostProgressTs: 0,
+        ping: 0,
+        driftEma: 0,
+        consecutiveDriftCount: 0,
+    });
     // Tracks who added each URI to the queue (keyed by uri). Populated when the
     // host receives an ADD_Q from a guest; merged into the queue on every refresh.
     const addedByMap = useRef<Map<string, { name: string; image: string }>>(new Map());
@@ -220,7 +240,8 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         userPromise.current = fetchUserAsync();
         userPromise.current.then(u => { cachedUser.current = u; });
 
-        const CURRENT_VERSION = '1.3.0';
+        // ⚠️  Keep this in sync with package.json and manifest.json on every version bump.
+        const CURRENT_VERSION = '1.4.0';
         const CURRENT_PATCH = 0; // bump for any code change without a version bump
 
         const checkUpdate = async () => {
@@ -262,12 +283,43 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, []);
 
     useEffect(() => {
+        let tickCounter = 0;
+        let pingCounter = 0;
         const id = setInterval(() => {
+            const now = Date.now();
             if (refs.current.isHost) {
                 try {
-                    setIsPlaying(Spicetify.Player.isPlaying());
-                    setProgress(Spicetify.Player.getProgress());
-                    setDuration(Spicetify.Player.getDuration());
+                    const currentPlaying = Spicetify.Player.isPlaying();
+                    const currentPos = Spicetify.Player.getProgress();
+                    const currentDur = Spicetify.Player.getDuration();
+
+                    setIsPlaying(currentPlaying);
+                    setProgress(currentPos);
+                    setDuration(currentDur);
+
+                    // 1. Instant native scrubber seek detection on host
+                    if (currentPlaying && refs.current.lastHostProgressTs > 0) {
+                        const elapsed = now - refs.current.lastHostProgressTs;
+                        const expectedPos = refs.current.lastHostProgress + elapsed;
+                        const diff = Math.abs(currentPos - expectedPos);
+                        // If progress jumped by > 1200ms unexpectedly, host dragged native seekbar
+                        if (diff > 1200) {
+                            broadcast({ type: 'SEEK', pos: currentPos, ts: now });
+                        }
+                    }
+                    refs.current.lastHostProgress = currentPos;
+                    refs.current.lastHostProgressTs = now;
+
+                    // 2. Periodic micro-sync heartbeat (every ~2.4s while playing)
+                    if (currentPlaying && conns.current.size > 0) {
+                        tickCounter++;
+                        if (tickCounter >= 6) { // 6 * 400ms = 2400ms
+                            tickCounter = 0;
+                            broadcast({ type: 'SYNC_TICK', pos: currentPos, ts: now });
+                        }
+                    } else {
+                        tickCounter = 0;
+                    }
                 } catch {}
             } else if (refs.current.connected) {
                 // Update progress/duration from local player for seek bar
@@ -281,8 +333,16 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     refs.current.lastProgress = p;
                     refs.current.lastDuration = d;
                 } catch {}
-                const c = hostConn(); if (c?.open) c.send({ type: 'PING', ts: Date.now() });
-                if (lastHostMsg.current > 0 && Date.now() - lastHostMsg.current > 10000) {
+
+                // Send high-frequency PING every ~2s (5 * 400ms) for accurate latency compensation
+                pingCounter++;
+                if (pingCounter >= 5) {
+                    pingCounter = 0;
+                    const c = hostConn();
+                    if (c?.open) c.send({ type: 'PING', ts: now });
+                }
+
+                if (lastHostMsg.current > 0 && now - lastHostMsg.current > 10000) {
                     setError('Connection lost - trying to reconnect...');
                     lastHostMsg.current = 0;
                     if (reconnectAttempt.current < 3) {
@@ -299,7 +359,6 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 }
                 try {
                     const localPlaying = Spicetify.Player.isPlaying();
-                    const now = Date.now();
                     if (
                         localPlaying !== refs.current.isPlaying &&
                         !refs.current.isHost &&
@@ -311,9 +370,9 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     }
                 } catch {}
             }
-        }, 1000);
+        }, 400);
         return () => clearInterval(id);
-    }, [hostConn]);
+    }, [hostConn, broadcast]);
 
     // UI Feedback for bottom button - Removed manual DOM manipulation
     // The button state is now handled in app.tsx via playbarBtn.active
@@ -683,14 +742,16 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     } else if (!trackChanged) {
                         // forcingPause only guards re-entrant onPP events, NOT incoming host commands.
                         r.forcingPause = false;
-                        const hostPos = Number(d.pos || 0) + (now - d.ts);
+                        const latency = r.ping > 0 ? (r.ping / 2) : Math.max(0, Math.min(now - d.ts, 500));
+                        const hostPos = Number(d.pos || 0) + (d.paused ? 0 : latency);
                         let localPos = 0;
                         try { localPos = Spicetify.Player.getProgress(); } catch {}
                         const drift = Math.abs(localPos - hostPos);
                         r.remotePlayTs = now;
                         r.lastSyncAppliedTs = now;
                         setIsPlaying(true);
-                        if (drift > 1500) {
+                        // Micro-drift threshold: smooth adjustment if drift > 400ms
+                        if (drift > 400) {
                             r.ignoreNextOnPP = true;
                             Spicetify.Player.seek(hostPos);
                         }
@@ -711,14 +772,12 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         const msgTs = d.ts;
                         const msgPos = d.pos;
                         Spicetify.Player.playUri(d.uri).then(() => {
-                            // Recalculate seekMs at seek time so total elapsed time since
-                            // the host sent the message (including playUri load time) is
-                            // accounted for — avoids the double-counted delay bug.
                             const sid = setTimeout(() => {
-                                const seekMs = msgPos + (Date.now() - msgTs);
+                                const latency = r.ping > 0 ? (r.ping / 2) : Math.max(0, Math.min(Date.now() - msgTs, 500));
+                                const seekMs = msgPos + latency + 350;
                                 Spicetify.Player.seek(seekMs);
                                 r.lastSyncAppliedTs = Date.now();
-                            }, 400);
+                            }, 350);
                             seekTimers.current.push(sid);
                         }).catch(() => {
                             r.ignoreNextSongChange = false;
@@ -729,7 +788,52 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 if (d.np) setNowPlaying(d.np);
                 break;
             case 'PAUSE': if (!r.isHost) { Spicetify.Player.pause(); setIsPlaying(false); } break;
-            case 'SEEK': if (!r.isHost) { const delay = Date.now() - d.ts; Spicetify.Player.seek(d.pos + delay); } break;
+            case 'SEEK':
+                if (!r.isHost) {
+                    const latency = r.ping > 0 ? (r.ping / 2) : Math.max(0, Math.min(Date.now() - d.ts, 500));
+                    r.ignoreNextOnPP = true;
+                    r.lastSyncAppliedTs = Date.now();
+                    Spicetify.Player.seek(d.pos + latency);
+                }
+                break;
+            case 'SYNC_TICK':
+                if (!r.isHost && Spicetify.Player.isPlaying()) {
+                    const now = Date.now();
+                    // Don't correct if we recently initiated playback or applied a sync
+                    if (now - r.remotePlayTs < 2500 || now - r.lastSyncAppliedTs < 2000) break;
+
+                    const latency = r.ping > 0 ? (r.ping / 2) : Math.max(0, Math.min(now - d.ts, 500));
+                    const expectedHostPos = Number(d.pos || 0) + latency;
+                    let localPos = 0;
+                    try { localPos = Spicetify.Player.getProgress(); } catch {}
+                    const currentDrift = Math.abs(localPos - expectedHostPos);
+
+                    // Exponential moving average filter to smooth out momentary jitter
+                    r.driftEma = r.driftEma === 0 ? currentDrift : (0.7 * r.driftEma + 0.3 * currentDrift);
+
+                    // Zone 1: < 160ms -> In-sync, no seek (preserves seamless audio)
+                    if (r.driftEma < 160) {
+                        r.consecutiveDriftCount = 0;
+                    }
+                    // Zone 2: 160ms - 650ms -> Micro-drift: smooth over 2 consecutive confirmations
+                    else if (r.driftEma < 650) {
+                        r.consecutiveDriftCount++;
+                        if (r.consecutiveDriftCount >= 2) {
+                            r.consecutiveDriftCount = 0;
+                            r.ignoreNextOnPP = true;
+                            r.lastSyncAppliedTs = now;
+                            Spicetify.Player.seek(expectedHostPos);
+                        }
+                    }
+                    // Zone 3: > 650ms -> Noticeable desync, correct promptly
+                    else {
+                        r.consecutiveDriftCount = 0;
+                        r.ignoreNextOnPP = true;
+                        r.lastSyncAppliedTs = now;
+                        Spicetify.Player.seek(expectedHostPos);
+                    }
+                }
+                break;
             case 'PS': if (!r.isHost) { setIsPlaying(d.p); if (d.pos !== undefined) setProgress(d.pos); if (d.dur !== undefined) setDuration(d.dur); } break;
             case 'ADD_Q':
                 if (r.isHost) {
@@ -746,7 +850,12 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             case 'RM_Q': if (r.isHost) removeFromQueue(d.uri, d.uid); break;
             case 'Q': setQueue(d.queue); break;
             case 'PING': conn.send({ type: 'PONG', ts: d.ts }); break;
-            case 'PONG': setPing(Date.now() - d.ts); break;
+            case 'PONG': {
+                const rtt = Math.max(0, Date.now() - d.ts);
+                setPing(rtt);
+                r.ping = rtt;
+                break;
+            }
             case 'SYNC':
                 if (r.isHost && Spicetify.Player.data?.item) {
                     const currentUri = Spicetify.Player.data.item.uri;
@@ -1066,16 +1175,16 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         qi = refs.current.isHost ? setInterval(refreshQueue, 5000) : null;
         driftI = !refs.current.isHost ? setInterval(() => { 
             const now = Date.now();
-            // Only request sync occasionally and only if we haven't just applied one
-            if (now - refs.current.remotePlayTs < 5000) return;
-            if (now - refs.current.lastSyncAppliedTs < 5000) return;
-            if (now - refs.current.lastSyncRequestTs < 10000) return;
+            // Secondary safety check in case a heartbeat packet was dropped
+            if (now - refs.current.remotePlayTs < 3000) return;
+            if (now - refs.current.lastSyncAppliedTs < 3000) return;
+            if (now - refs.current.lastSyncRequestTs < 5000) return;
             const c = hostConn(); 
             if (c?.open) {
                 refs.current.lastSyncRequestTs = now;
                 c.send({ type: 'SYNC' }); 
             }
-        }, 15000) : null;
+        }, 6000) : null;
         try {
             if (ctxMenuItem.current) { try { ctxMenuItem.current.deregister(); } catch {} }
             ctxMenuItem.current = new (Spicetify as any).ContextMenu.Item(
