@@ -15,8 +15,9 @@
   <a href="https://spicetify.app">
     <img src="https://img.shields.io/badge/built%20for-spicetify-1db954?style=flat-square" alt="Spicetify" />
   </a>
-  <img src="https://img.shields.io/endpoint?url=https://103-165-11-129.sslip.io/jam/shields&style=flat-square&logo=spotify&logoColor=white" alt="Daily Active Users" />
-  <img src="https://img.shields.io/endpoint?url=https://103-165-11-129.sslip.io/jam/total-shields&style=flat-square&logo=spotify&logoColor=white&label=total%20users" alt="Total Users" />
+  <a href="https://github.com/Kyzenkms/spicetify-jam/stargazers">
+    <img src="https://img.shields.io/github/stars/Kyzenkms/spicetify-jam?style=flat-square&logo=github&color=1db954" alt="GitHub Stars" />
+  </a>
   <a href="LICENSE">
     <img src="https://img.shields.io/badge/license-MIT-444?style=flat-square" alt="License" />
   </a>

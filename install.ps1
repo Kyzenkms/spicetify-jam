@@ -1,9 +1,23 @@
-﻿$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Stop"
 
 $ExtensionName = "spicetify-jam.js"
 $ExtensionUrl = "https://raw.githubusercontent.com/Kyzenkms/spicetify-jam/main/dist/$ExtensionName"
 
 Write-Host "🎵 Installing Spicetify Jam..." -ForegroundColor Green
+
+if (-not (Get-Command spicetify -ErrorAction SilentlyContinue)) {
+    $defaultPaths = @(
+        (Join-Path $env:LOCALAPPDATA "spicetify"),
+        (Join-Path $env:USERPROFILE "spicetify"),
+        (Join-Path $env:USERPROFILE ".spicetify")
+    )
+    foreach ($p in $defaultPaths) {
+        if (Test-Path (Join-Path $p "spicetify.exe")) {
+            $env:PATH = "$p;$env:PATH"
+            break
+        }
+    }
+}
 
 if (-not (Get-Command spicetify -ErrorAction SilentlyContinue)) {
     Write-Host "❌ spicetify not found. Install it first: https://spicetify.app/" -ForegroundColor Red
@@ -46,10 +60,18 @@ if ($LASTEXITCODE -ne 0) {
 $ConfiguredExtensions = ($ConfigOutput -join "`n") -split "\r?\n|\|" | ForEach-Object { $_.Trim() }
 
 if ($ConfiguredExtensions -notcontains $ExtensionName) {
-    Invoke-Spicetify @("config", "extensions", $ExtensionName)
+    & spicetify config extensions "$ExtensionName+"
 }
 
-Invoke-Spicetify @("apply")
+Write-Host "🚀 Applying changes to Spotify..." -ForegroundColor Yellow
+& spicetify apply
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "⚠️ spicetify apply failed, trying backup apply..." -ForegroundColor Yellow
+    & spicetify backup apply
+    if ($LASTEXITCODE -ne 0) {
+        throw "spicetify apply and backup apply failed."
+    }
+}
 
 Write-Host ""
 Write-Host "✅ Done! Restart Spotify to use Spicetify Jam." -ForegroundColor Green

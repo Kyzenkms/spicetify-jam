@@ -7,6 +7,15 @@ EXTENSION_URL="https://raw.githubusercontent.com/Kyzenkms/spicetify-jam/main/dis
 echo "🎵 Installing Spicetify Jam..."
 
 if ! command -v spicetify &>/dev/null; then
+  for p in "$HOME/.spicetify" "$HOME/.local/bin" "/usr/local/bin"; do
+    if [ -x "$p/spicetify" ]; then
+      export PATH="$p:$PATH"
+      break
+    fi
+  done
+fi
+
+if ! command -v spicetify &>/dev/null; then
   echo "❌ spicetify not found. Install it first: https://spicetify.app/"
   exit 1
 fi
@@ -38,13 +47,17 @@ if [ ! -s "$EXTENSION_PATH" ]; then
 fi
 
 echo "⚙️ Configuring Spicetify..."
-CURRENT_EXTENSIONS="$(spicetify config extensions)"
+CURRENT_EXTENSIONS="$(spicetify config extensions 2>/dev/null || true)"
 
 if ! printf '%s\n' "$CURRENT_EXTENSIONS" | tr '|' '\n' | grep -Fxq "$EXTENSION_NAME"; then
-  spicetify config extensions "$EXTENSION_NAME"
+  spicetify config extensions "${EXTENSION_NAME}+"
 fi
 
-spicetify apply
+echo "🚀 Applying changes to Spotify..."
+if ! spicetify apply; then
+  echo "⚠️ spicetify apply failed, trying backup apply..."
+  spicetify backup apply
+fi
 
 echo ""
 echo "✅ Done! Restart Spotify to use Spicetify Jam."
