@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import Peer, { DataConnection } from 'peerjs';
 
-interface TrackInfo { title: string; artist: string; artUrl: string; uri?: string; uid?: string; addedBy?: { name: string; image: string }; }
+interface TrackInfo { title: string; artist: string; artUrl: string; uri?: string; uid?: string; isManual?: boolean; addedBy?: { name: string; image: string }; }
 interface Member { id: string; name: string; isHost?: boolean; image?: string; }
 interface JamState {
     isHost: boolean; jamId: string; members: Member[]; connected: boolean; error: string | null;
@@ -47,33 +47,43 @@ const fmtImg = (u?: string): string => {
 };
 
 const fetchUserAsync = async (): Promise<{ name: string; image: string }> => {
+    let name = '';
+    let image = '';
+
     try {
         const user = await (Spicetify as any).Platform?.UserAPI?.getUser();
-        if (user?.displayName) {
-            return {
-                name: user.displayName,
-                image: fmtImg(user.images?.[0]?.url || user.images?.[0] || '')
-            };
+        if (user) {
+            if (user.displayName) name = user.displayName;
+            image = fmtImg(user.images?.[0]?.url || user.images?.[0] || user.imageUrl || user.avatar || '');
         }
     } catch {}
 
-    try {
-        const res = await (Spicetify as any).CosmosAsync.get('sp://identity/v1/profile');
-        if (res?.displayName || res?.name) {
-            return {
-                name: res.displayName || res.name,
-                image: fmtImg(res.imageUrl || res.image || '')
-            };
-        }
-    } catch {}
+    if (!name || !image) {
+        try {
+            const res = await (Spicetify as any).CosmosAsync.get('sp://identity/v1/profile');
+            if (res) {
+                if (!name) name = res.displayName || res.name || '';
+                if (!image) image = fmtImg(res.imageUrl || res.image || res.images?.[0]?.url || '');
+            }
+        } catch {}
+    }
 
-    const name =
-        (Spicetify as any).Username ||
-        document.querySelector('[data-testid="user-widget-name"]')?.textContent?.trim() ||
-        document.querySelector('.main-userWidget-displayName')?.textContent?.trim() ||
-        'Listener';
+    if (!image) {
+        const domImg = document.querySelector<HTMLImageElement>(
+            'button[data-testid="user-widget-link"] img, [data-testid="user-widget-avatar"] img, .main-userWidget-avatar img, figure[data-testid="user-widget-avatar"] img'
+        );
+        if (domImg?.src) image = domImg.src;
+    }
 
-    return { name, image: '' };
+    if (!name) {
+        name =
+            (Spicetify as any).Username ||
+            document.querySelector('[data-testid="user-widget-name"]')?.textContent?.trim() ||
+            document.querySelector('.main-userWidget-displayName')?.textContent?.trim() ||
+            'Host';
+    }
+
+    return { name, image };
 };
 
 const getTrack = (): TrackInfo | null => {
@@ -89,7 +99,7 @@ const getTrack = (): TrackInfo | null => {
     };
 };
 
-const extractTrack = (t: any): TrackInfo => {
+const extractTrack = (t: any, isManual = false): TrackInfo => {
     const data = t?.contextTrack || t?.track || t || {};
     const meta = data?.metadata || t?.metadata || {};
     const title = data.name || meta.name || meta.title || t.name || '?';
@@ -97,7 +107,7 @@ const extractTrack = (t: any): TrackInfo => {
     const artUrl = fmtImg(meta.image_xlarge_url || meta.image_large_url || meta.image_url || data.album?.images?.[0]?.url || t.imageUrl || meta.thumbnail_url);
     const uri = data.uri || t.uri || '';
     const uid = data.uid || t.uid || '';
-    return { title, artist, artUrl, uri, uid };
+    return { title, artist, artUrl, uri, uid, isManual };
 };
 
 const getQueue = async (): Promise<TrackInfo[]> => {
@@ -108,8 +118,8 @@ const getQueue = async (): Promise<TrackInfo[]> => {
         try {
             const res = await (Spicetify as any).Platform?.PlayerAPI?.getQueue();
             if (res) {
-                const queued = res.queued || [];
-                const autoplay = res.nextUp || res.autoplay || res.context || res.nextTracks || [];
+                const queued = (res.queued || []).map((t: any) => extractTrack(t, true));
+                const autoplay = (res.nextUp || res.autoplay || res.context || res.nextTracks || []).map((t: any) => extractTrack(t, false));
                 
                 // Combine manual queue and auto queue
                 if (queued.length > 0 || autoplay.length > 0) {
@@ -399,9 +409,18 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const spotifyQueue = (await getQueue()).filter(t => !removedUris.current.has(t.uri!));
         const currentQueue = queueRef.current;
 
-        // Merge "added by" attribution from guests back into the refreshed queue
+        // Merge "added by" attribution from guests or host back into the refreshed queue
+        const hostUser = {
+            name: cachedUser.current.name || 'Host',
+            image: cachedUser.current.image || ''
+        };
         const queueWithAttr = spotifyQueue.map(t => {
-            const by = t.uri ? addedByMap.current.get(t.uri) : undefined;
+            let by = t.uri ? addedByMap.current.get(t.uri) : undefined;
+            // If track is in the manual queue and hasn't been claimed by a guest, the host added it!
+            if (!by && t.isManual && (hostUser.name || hostUser.image)) {
+                by = hostUser;
+                if (t.uri) addedByMap.current.set(t.uri, hostUser);
+            }
             return by ? { ...t, addedBy: by } : t;
         });
         if (JSON.stringify(queueWithAttr.map(t => t.uri)) !== JSON.stringify(currentQueue.map(t => t.uri))) {
@@ -414,19 +433,31 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const uriArray = Array.isArray(uris) ? uris : [uris];
         if (refs.current.isHost) {
             try {
+                if (!cachedUser.current.name || cachedUser.current.name === 'Listener') {
+                    cachedUser.current = await fetchUserAsync();
+                }
+                const hostUser = {
+                    name: cachedUser.current.name || 'Host',
+                    image: cachedUser.current.image || ''
+                };
+                uriArray.forEach(u => {
+                    removedUris.current.delete(u);
+                    addedByMap.current.set(u, hostUser);
+                });
                 await Spicetify.addToQueue(uriArray.map(uri => ({ uri })));
                 Spicetify.showNotification(uriArray.length > 1 ? `Added ${uriArray.length} tracks!` : 'Added!');
-                // Re-adding a previously removed track un-blocks it
-                uriArray.forEach(u => removedUris.current.delete(u));
                 // Reset dirty flag so the newly added track is fetched from Spotify
                 queueUserOrdered.current = 0;
-                setTimeout(refreshQueue, 1500); 
+                setTimeout(refreshQueue, 500); 
             } catch { 
                 Spicetify.showNotification('Failed to add to queue', true); 
             }
         } else { 
             const c = hostConn(); 
             if (c?.open) { 
+                if (!cachedUser.current.name || cachedUser.current.name === 'Listener') {
+                    cachedUser.current = await fetchUserAsync();
+                }
                 uriArray.forEach(uri => c.send({
                     type: 'ADD_Q',
                     uri,
