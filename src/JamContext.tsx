@@ -172,6 +172,30 @@ const getQueue = async (): Promise<TrackInfo[]> => {
     } catch { return []; }
 };
 
+// Atomically move a track in Spotify's native queue using Spotify's PlayerAPI.
+// Avoids clearing or rewriting the entire queue when a user drags to reorder.
+const moveTrackNative = async (movedTrack?: TrackInfo, targetTrack?: TrackInfo, isMovingDown = false): Promise<boolean> => {
+    try {
+        if (!movedTrack?.uri || !targetTrack?.uri) return false;
+        const playerApi = (Spicetify as any).Platform?.PlayerAPI;
+        const originQueue = (Spicetify as any).Player?.origin?._queue;
+        const reorderFn = playerApi?.reorderQueue ? playerApi.reorderQueue.bind(playerApi)
+            : originQueue?.reorderQueue ? originQueue.reorderQueue.bind(originQueue)
+            : null;
+
+        if (reorderFn) {
+            const item = { uid: movedTrack.uid || undefined, uri: movedTrack.uri };
+            const target = { uid: targetTrack.uid || undefined, uri: targetTrack.uri };
+            const position = isMovingDown ? { after: target } : { before: target };
+            await reorderFn([item], position);
+            return true;
+        }
+    } catch (e) {
+        console.warn('[Spicetify Jam] Native reorderQueue failed, will fall back to rewrite', e);
+    }
+    return false;
+};
+
 // Rewrite Spotify's native manual queue to match `tracks`. Removals are
 // per-track: a single batched removeFromQueue rejects wholesale when any entry
 // (e.g. a context track that was never in the manual queue) can't be removed,
@@ -514,9 +538,13 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             return;
         }
 
-        // Host: instant visual + broadcast + debounced Spotify native sync
+        // Host: instant visual + broadcast + native atomic Spotify queue reorder
+        const prevQueue = queueRef.current;
+        const movedTrack = prevQueue[from];
+        const targetTrack = prevQueue[to];
+
         queueUserOrdered.current = Date.now();
-        const reordered = [...queueRef.current];
+        const reordered = [...prevQueue];
         const [moved] = reordered.splice(from, 1);
         reordered.splice(to, 0, moved);
         setQueue(reordered);
@@ -524,9 +552,14 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         if (reorderDebounce.current) clearTimeout(reorderDebounce.current);
         reorderDebounce.current = setTimeout(async () => {
-            await rewriteNativeQueue([...queueRef.current]);
+            // Attempt fast atomic move without recreating queue
+            const ok = await moveTrackNative(movedTrack, targetTrack, from < to);
+            if (!ok) {
+                // Fallback to rewrite if native reorderQueue is unsupported or fails
+                await rewriteNativeQueue([...queueRef.current]);
+            }
             queueUserOrdered.current = Date.now();
-        }, 800);
+        }, 150);
     }, [broadcast, hostConn]);
 
     const jumpToTrack = useCallback((uri: string) => {
