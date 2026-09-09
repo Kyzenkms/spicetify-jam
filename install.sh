@@ -49,8 +49,14 @@ fi
 echo "⚙️ Configuring Spicetify..."
 CURRENT_EXTENSIONS="$(spicetify config extensions 2>/dev/null || true)"
 
+# Clean up accidental "${EXTENSION_NAME}+" from previous buggy installer if present
+if printf '%s\n' "$CURRENT_EXTENSIONS" | tr '|' '\n' | grep -Fxq "${EXTENSION_NAME}+"; then
+  spicetify config extensions "${EXTENSION_NAME}+-" || true
+  CURRENT_EXTENSIONS="$(spicetify config extensions 2>/dev/null || true)"
+fi
+
 if ! printf '%s\n' "$CURRENT_EXTENSIONS" | tr '|' '\n' | grep -Fxq "$EXTENSION_NAME"; then
-  spicetify config extensions "${EXTENSION_NAME}+"
+  spicetify config extensions "$EXTENSION_NAME"
 fi
 
 echo "🚀 Applying changes to Spotify..."

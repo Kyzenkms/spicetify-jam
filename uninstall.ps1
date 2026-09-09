@@ -27,7 +27,8 @@ $ExtensionsDir = Join-Path $UserDataPath.Trim() "Extensions"
 $ExtensionPath = Join-Path $ExtensionsDir $ExtensionName
 
 Write-Host "⚙️ Removing from Spicetify config..." -ForegroundColor Yellow
-Invoke-Spicetify @("config", "extensions", "${ExtensionName}-")
+& spicetify config extensions "${ExtensionName}+-" 2>$null
+& spicetify config extensions "${ExtensionName}-" 2>$null
 
 if (Test-Path -LiteralPath $ExtensionPath) {
     Write-Host "📁 Deleting extension file..." -ForegroundColor Yellow

@@ -12,7 +12,8 @@ fi
 
 # Remove extension from config (append - to disable)
 echo "⚙️ Removing from Spicetify config..."
-spicetify config extensions "${EXTENSION_NAME}-"
+spicetify config extensions "${EXTENSION_NAME}+-" 2>/dev/null || true
+spicetify config extensions "${EXTENSION_NAME}-" 2>/dev/null || true
 
 # Delete the extension file
 SPICETIFY_DATA_DIR="$(spicetify path userdata 2>/dev/null || true)"

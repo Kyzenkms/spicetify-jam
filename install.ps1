@@ -59,8 +59,15 @@ if ($LASTEXITCODE -ne 0) {
 
 $ConfiguredExtensions = ($ConfigOutput -join "`n") -split "\r?\n|\|" | ForEach-Object { $_.Trim() }
 
+# Clean up accidental "$ExtensionName+" from previous buggy installer if present
+if ($ConfiguredExtensions -contains "$ExtensionName+") {
+    & spicetify config extensions "$ExtensionName+-" 2>$null
+    $ConfigOutput = & spicetify config extensions 2>$null
+    $ConfiguredExtensions = ($ConfigOutput -join "`n") -split "\r?\n|\|" | ForEach-Object { $_.Trim() }
+}
+
 if ($ConfiguredExtensions -notcontains $ExtensionName) {
-    & spicetify config extensions "$ExtensionName+"
+    & spicetify config extensions $ExtensionName
 }
 
 Write-Host "🚀 Applying changes to Spotify..." -ForegroundColor Yellow
