@@ -607,3 +607,34 @@
     background: rgba(232,68,68,0.07); border: 1px solid rgba(232,68,68,0.18);
     border-radius: 8px; color: #ff8080; font-size: 12px;
 }
+
+/* ── Playbar Button Reset ──────────────────── */
+button.jam-playbar-btn {
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+    color: var(--spice-subtext, rgba(255, 255, 255, 0.7)) !important;
+    padding: 8px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+button.jam-playbar-btn:hover {
+    background: transparent !important;
+    background-color: transparent !important;
+    color: var(--spice-text, #fff) !important;
+    transform: scale(1.06);
+}
+
+button.jam-playbar-btn svg {
+    background: transparent !important;
+    background-color: transparent !important;
+    stroke: currentColor !important;
+}
+
+button.jam-playbar-btn.main-genericButton-buttonActive {
+    color: var(--spice-button-active, #1db954) !important;
+}
