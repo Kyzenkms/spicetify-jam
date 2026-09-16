@@ -281,6 +281,9 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // permanent handler that always delegates to the current closure,
     // avoiding stale captures on existing WebRTC data connections.
     const onDataRef = useRef<((d: any, conn: DataConnection) => void) | null>(null);
+    // Stable ref to the latest addToQueue — used by the ContextMenu item so
+    // it doesn't need to be re-registered every time addToQueue changes.
+    const addToQueueRef = useRef<((uris: string | string[]) => void) | null>(null);
 
     useEffect(() => { queueRef.current = queue; }, [queue]);
 
@@ -512,6 +515,7 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
         }
     }, [refreshQueue, hostConn]);
+    addToQueueRef.current = addToQueue;
 
     const removeFromQueue = useCallback(async (uri: string, uid?: string) => {
         if (refs.current.isHost) {
@@ -1272,24 +1276,39 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 c.send({ type: 'SYNC' }); 
             }
         }, 6000) : null;
-        try {
-            if (ctxMenuItem.current) { try { ctxMenuItem.current.deregister(); } catch {} }
-            ctxMenuItem.current = new (Spicetify as any).ContextMenu.Item(
-                'Add to Jam', 
-                (uris: string[]) => addToQueue(uris), 
-                () => refs.current.connected, 
-                'plus2px'
-            );
-            ctxMenuItem.current.register();
-        } catch {}
         return () => { 
             Spicetify.Player.removeEventListener('songchange', onSong); 
             Spicetify.Player.removeEventListener('onplaypause', onPP); 
             if (qi) clearInterval(qi); 
             if (driftI) clearInterval(driftI); 
-            try { ctxMenuItem.current?.deregister(); } catch {} 
         };
-    }, [connected, isHost, broadcast, refreshQueue, addToQueue, hostConn, playNextInJamQueue]);
+    }, [connected, isHost, broadcast, refreshQueue, hostConn, playNextInJamQueue]);
+
+    // ── Context-menu "Add to Jam" item ─────────────────────────────────────
+    // Kept in its own effect (deps = [connected] only) so the item is
+    // registered exactly once per session — not torn down and re-created on
+    // every addToQueue/refreshQueue closure change.  The callback delegates
+    // through addToQueueRef.current so it always calls the latest version.
+    useEffect(() => {
+        if (!connected) return;
+        let item: any = null;
+        try {
+            item = new (Spicetify as any).ContextMenu.Item(
+                'Add to Jam',
+                (uris: string[]) => addToQueueRef.current?.(uris),
+                () => refs.current.connected,
+                'plus-alt'          // valid SVGIcons key (was 'plus2px' — doesn't exist)
+            );
+            item.register();
+            ctxMenuItem.current = item;
+        } catch (e) {
+            console.warn('[Spicetify Jam] ContextMenu.Item registration failed', e);
+        }
+        return () => {
+            try { item?.deregister(); } catch {}
+            ctxMenuItem.current = null;
+        };
+    }, [connected]);
 
     useEffect(() => {
         const hash = window.location.hash.slice(1);
