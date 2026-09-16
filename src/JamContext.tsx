@@ -1289,15 +1289,27 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // registered exactly once per session — not torn down and re-created on
     // every addToQueue/refreshQueue closure change.  The callback delegates
     // through addToQueueRef.current so it always calls the latest version.
+    // ── Context-menu "Add to Jam" item ─────────────────────────────────────
+    // Registers ContextMenu item so it shows up in Spotify's track 3-dots menus
+    // whenever connected to a Jam.
     useEffect(() => {
-        if (!connected) return;
         let item: any = null;
         try {
             item = new (Spicetify as any).ContextMenu.Item(
                 'Add to Jam',
                 (uris: string[]) => addToQueueRef.current?.(uris),
-                () => refs.current.connected,
-                'plus-alt'          // valid SVGIcons key (was 'plus2px' — doesn't exist)
+                (uris: string[]) => {
+                    if (!refs.current.connected) return false;
+                    if (!uris || !uris.length) return false;
+                    return uris.some(u => {
+                        try {
+                            return (Spicetify as any).URI?.isTrack(u) || u.includes(':track:');
+                        } catch {
+                            return u.includes(':track:');
+                        }
+                    });
+                },
+                'plus-alt'
             );
             item.register();
             ctxMenuItem.current = item;
@@ -1308,7 +1320,7 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             try { item?.deregister(); } catch {}
             ctxMenuItem.current = null;
         };
-    }, [connected]);
+    }, []);
 
     useEffect(() => {
         const hash = window.location.hash.slice(1);
