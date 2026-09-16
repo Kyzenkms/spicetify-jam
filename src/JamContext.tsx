@@ -277,6 +277,10 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // URIs removed from the Jam queue that can't be removed natively (context
     // tracks) — filtered out of refreshes and skipped if they start playing
     const removedUris = useRef<Set<string>>(new Set());
+    // Stable ref to the latest onData — lets setupConn bind a single
+    // permanent handler that always delegates to the current closure,
+    // avoiding stale captures on existing WebRTC data connections.
+    const onDataRef = useRef<((d: any, conn: DataConnection) => void) | null>(null);
 
     useEffect(() => { queueRef.current = queue; }, [queue]);
 
@@ -503,7 +507,9 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     addedBy: { name: cachedUser.current.name, image: cachedUser.current.image }
                 }));
                 Spicetify.showNotification(uriArray.length > 1 ? `Requested ${uriArray.length} tracks!` : 'Requested!'); 
-            } 
+            } else {
+                Spicetify.showNotification('Not connected to host — try rejoining the Jam', true);
+            }
         }
     }, [refreshQueue, hostConn]);
 
@@ -953,18 +959,21 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 break;
         }
     }, [broadcast, leaveJam, addToQueue, removeFromQueue, buildMembers, moveInQueue, playNextInJamQueue]);
-
-
+    // Keep the ref in sync so setupConn's permanent handler always dispatches
+    // to the latest onData closure (fixes stale ADD_Q / ADD on reconnects).
+    onDataRef.current = onData;
 
     const setupConn = useCallback((conn: DataConnection) => {
         conn.on('open', () => conns.current.set(conn.peer, conn));
-        conn.on('data', (d: any) => onData(d, conn));
+        // Dispatch through the stable ref so that existing connections
+        // always call the latest onData even after re-renders update it.
+        conn.on('data', (d: any) => onDataRef.current?.(d, conn));
         conn.on('close', () => { 
             conns.current.delete(conn.peer); 
             memberRegistry.current.delete(conn.peer); 
             setMembers(buildMembers()); 
         });
-    }, [onData, buildMembers]);
+    }, [buildMembers]);
 
     const startJam = async (retries = 0): Promise<void> => {
         if (connected) leaveJam();
@@ -1041,7 +1050,7 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         res();
                     });
                 });
-                conn.on('data', (d: any) => onData(d, conn));
+                conn.on('data', (d: any) => onDataRef.current?.(d, conn));
                 conn.on('close', () => {
                     if (reconnectAttempt.current >= 3) { leaveJam(); setError('Host ended the session'); return; }
                     reconnectAttempt.current++;
@@ -1056,7 +1065,7 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                             reconnectAttempt.current = 0;
                             newConn.send({ type: 'JOIN', name: me.name, image: me.image });
                         });
-                        newConn.on('data', (d: any) => onData(d, newConn));
+                        newConn.on('data', (d: any) => onDataRef.current?.(d, newConn));
                         newConn.on('close', () => {
                             if (reconnectAttempt.current >= 3) { leaveJam(); setError('Host ended the session'); }
                             else {
