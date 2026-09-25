@@ -67,4 +67,4 @@ fi
 
 echo ""
 echo "✅ Done! Restart Spotify to use Spicetify Jam."
-echo "   Look for the 🎵 icon in the bottom-right player bar."
+echo "   Look for the Jam icon ((•)) in the bottom-right player bar."

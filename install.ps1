@@ -82,4 +82,4 @@ if ($LASTEXITCODE -ne 0) {
 
 Write-Host ""
 Write-Host "✅ Done! Restart Spotify to use Spicetify Jam." -ForegroundColor Green
-Write-Host "   Look for the 🎵 icon in the bottom-right player bar."
+Write-Host "   Look for the Jam icon ((•)) in the bottom-right player bar."

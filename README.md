@@ -70,7 +70,7 @@ irm https://raw.githubusercontent.com/Kyzenkms/spicetify-jam/main/install.ps1 | 
 bash <(curl -fsSL https://raw.githubusercontent.com/Kyzenkms/spicetify-jam/main/install.sh)
 ```
 
-That's it. Restart Spotify and look for the 🎵 icon in the player bar.
+That's it. Restart Spotify and look for the Jam icon `((•))` in the player bar.
 
 ---
 
