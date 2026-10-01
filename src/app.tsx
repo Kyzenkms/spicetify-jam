@@ -107,10 +107,10 @@ async function main() {
       jamSvg,
       toggle
     );
+    playbarBtn.register();
     if (playbarBtn.element) {
       playbarBtn.element.classList.add('jam-playbar-btn');
     }
-    playbarBtn.register();
   } else if (Spicetify.Topbar) {
     topbarBtn = new (Spicetify as any).Topbar.Button(
       'Spicetify Jam',
