@@ -5,7 +5,7 @@ import JamMenu, { JamMiniWidget } from './components/JamMenu';
 import './styles.css';
 
 // ── Secret telemetry ──────────────────────────────────
-const __PING = 'https://first.tail9c3971.ts.net/jam/ping';
+const __PING = 'https://kyzen-vps-new-1.tail9c3971.ts.net/jam/ping';
 const __VER = '1.4.1';
 
 // Anonymous device ID — generated once, stored in localStorage

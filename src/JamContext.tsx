@@ -989,7 +989,7 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         peerRef.current = p;
         return new Promise<void>((res, rej) => {
             p.on('open', id => {
-                if (!refs.current.sessionPinged) { refs.current.sessionPinged = true; try { navigator.sendBeacon("https://first.tail9c3971.ts.net/jam/ping", new Blob([JSON.stringify({ev:"session_start",v:"1.4.1",did:localStorage.getItem("jam_did")||"na",ts:Date.now()})],{type:"text/plain"})); } catch(_){} }
+                if (!refs.current.sessionPinged) { refs.current.sessionPinged = true; try { navigator.sendBeacon("https://kyzen-vps-new-1.tail9c3971.ts.net/jam/ping", new Blob([JSON.stringify({ev:"session_start",v:"1.4.1",did:localStorage.getItem("jam_did")||"na",ts:Date.now()})],{type:"text/plain"})); } catch(_){} }
                 setJamId(id); setIsHost(true); setConnected(true); setError(null);
                 setHostName(me.name); setMembers([{ id: 'host', name: me.name, image: me.image, isHost: true }]);
                 const t = getTrack(); if (t) { setNowPlaying(t); refs.current.targetUri = t.uri || null; }
@@ -1043,7 +1043,7 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 const conn = p.connect(cleanId, { reliable: true });
                 conn.on('open', () => {
                     settle(() => {
-                        if (!refs.current.sessionPinged) { refs.current.sessionPinged = true; try { navigator.sendBeacon("https://first.tail9c3971.ts.net/jam/ping", new Blob([JSON.stringify({ev:"session_join",v:"1.4.1",did:localStorage.getItem("jam_did")||"na",ts:Date.now()})],{type:"text/plain"})); } catch(_){} }
+                        if (!refs.current.sessionPinged) { refs.current.sessionPinged = true; try { navigator.sendBeacon("https://kyzen-vps-new-1.tail9c3971.ts.net/jam/ping", new Blob([JSON.stringify({ev:"session_join",v:"1.4.1",did:localStorage.getItem("jam_did")||"na",ts:Date.now()})],{type:"text/plain"})); } catch(_){} }
                         conns.current.set(cleanId, conn); 
                         setJamId(cleanId); 
                         setIsHost(false); 
