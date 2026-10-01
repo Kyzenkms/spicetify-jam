@@ -17,25 +17,22 @@ interface JamState {
     play: () => void; pause: () => void; next: () => void; prev: () => void;
 }
 
-// WebRTC ICE servers: Fast STUN + Dedicated Metered TURN Relay + OpenRelay fallback
+// WebRTC ICE servers: Fast STUN + OpenRelay + Private VPS Relay Fallback
 const _ice = () => [
-    // 1. Direct P2P STUN Hole-punching
+    // 1. Direct P2P STUN Hole-punching (Primary - zero relay overhead)
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
     { urls: 'stun:stun2.l.google.com:19302' },
     { urls: 'stun:stun.cloudflare.com:3478' },
     { urls: 'stun:stun.relay.metered.ca:80' },
 
-    // 2. Dedicated Metered TURN Relay (Primary)
-    { urls: 'turn:global.relay.metered.ca:80', username: '5671a1203638ea4234b7a631', credential: 'lKVklgf/chGBTY7V' },
-    { urls: 'turn:global.relay.metered.ca:80?transport=tcp', username: '5671a1203638ea4234b7a631', credential: 'lKVklgf/chGBTY7V' },
-    { urls: 'turn:global.relay.metered.ca:443', username: '5671a1203638ea4234b7a631', credential: 'lKVklgf/chGBTY7V' },
-    { urls: 'turns:global.relay.metered.ca:443?transport=tcp', username: '5671a1203638ea4234b7a631', credential: 'lKVklgf/chGBTY7V' },
-
-    // 3. Permanent OpenRelay Fallback
+    // 2. OpenRelay Fallback
     { urls: 'turn:openrelay.metered.ca:80?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
     { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
-    { urls: 'turns:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+
+    // 3. Dedicated VPS Fallback Relay (Resource-capped & lightweight)
+    { urls: 'turn:137.23.45.53:3478?transport=udp', username: 'spicetifyjam', credential: 'jamrelaypass2026' },
+    { urls: 'turn:137.23.45.53:3478?transport=tcp', username: 'spicetifyjam', credential: 'jamrelaypass2026' },
 ];
 const PEER_CONFIG = { config: { iceServers: _ice(), iceCandidatePoolSize: 10 }, debug: 0 };
 
