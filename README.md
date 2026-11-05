@@ -36,6 +36,15 @@
 
 <img src="https://capsule-render.vercel.app/api?type=rect&color=1db954&height=2&width=100%" width="100%" alt="divider" />
 
+## What's new in v1.4.2
+
+- **Invite links now work.** Use **Copy Link** to share an invite that opens Spotify and joins your Jam.
+- **QR codes open the invite page**, with a session code you can copy if needed.
+- **Stay where you were.** Joining opens the Jam panel without leaving an invite in your search bar or taking you away from your music.
+- **Clearer update alerts.** The Jam panel lets you know when a newer version is available and shows you how to update.
+
+**Already installed?** You and your friends should rerun the [quick installer](#quick-install-recommended), then create a new Jam and share a fresh link.
+
 ## Features
 
 <div align="center">
@@ -47,7 +56,7 @@
 | 🎙️ | **Pass the Aux (Guest Controls)** | Host can grant control to friends so anyone can control the music |
 | 👥 | **Live Friend Avatars** | See who's in the room with real Spotify profile pictures and live presence |
 | 📌 | **Mini Player Widget** | A sleek floating widget keeping you connected to the Jam even when the sidebar is minimized |
-| ⚡ | **Instant Room Invites** | Invite friends in seconds using a 6-letter room code, QR code, or shareable link |
+| ⚡ | **Instant Room Invites** | Invite friends in seconds using a 6-character room code, QR code, or shareable link |
 | 🔄 | **Seamless Auto-Sync** | Automatically keeps everyone in sync without pausing or interrupting the music |
 
 </div>
@@ -108,11 +117,14 @@ spicetify apply
 
 ## Updating
 
-**Upgrading to v1.4.2:** rerun the [quick installer](#quick-install-recommended). It installs both the extension and the dedicated Jam app needed by the new invite links.
+Run the [quick installer](#quick-install-recommended) again, then restart Spotify. Both the host and guests should update before using the new invite links.
 
-Older builds check for updates when Spotify starts. Restart Spotify and open the Jam panel to see the update banner. Starting with v1.4.2, update checks also run when Spotify regains focus and every 30 minutes; a notification and banner link to the installation guide when a newer release is available.
+An **Update available** banner appears in the Jam panel when a newer version is detected. On an older installation, restart Spotify to check. Updates are installed by running the installer, not by clicking the banner alone.
 
-From inside the `spicetify-jam` folder:
+<details>
+<summary>Updating a manual installation</summary>
+
+From inside your `spicetify-jam` folder:
 
 ```bash
 git pull
@@ -121,6 +133,8 @@ npm run build
 spicetify config custom_apps spicetify-jam
 spicetify apply
 ```
+
+</details>
 
 <img src="https://capsule-render.vercel.app/api?type=rect&color=1db954&height=2&width=100%" width="100%" alt="divider" />
 
@@ -139,9 +153,11 @@ spicetify apply
 2. Enter the host's **Session ID** or open their join link.
 3. Playback syncs automatically. Resuming after a pause jumps you straight to the live position.
 
-**Invite links** use `https://kyzenkms.github.io/spicetify-jam/?jam=CODE`. The invite page opens `spotify:app:spicetify-jam:CODE`, which goes directly to the installed Jam app. The extension opens the side panel, joins the session, and restores your previous Spotify page. No search query is used.
+**Sharing an invite:** click **Copy Link** while hosting and send it to your friends. Links look like `https://kyzenkms.github.io/spicetify-jam/?jam=CODE`. Open the link and choose **Open Spotify** if your browser asks. The Jam panel opens and connects you to the host.
 
-Both people need Spotify desktop and the latest Spicetify Jam installation, including its custom-app route. Run the installer again when upgrading from an extension-only install. If your browser asks, choose **Open Spotify**. The invite page also has an **Open Spotify** button and a copyable code. On mobile, open the same invite on your computer. Old links containing `#jam=CODE` can still be pasted into the Jam sidebar.
+Both people need **Spotify desktop with Spicetify Jam installed and updated**. If you're on your phone, open the invite on your computer instead. You can also copy the 6-character session code and paste it into the Jam panel.
+
+Spotify's built-in Jam links (`spotify.link/...`) do not work with Spicetify Jam. Ask the host to create a session from this extension's Jam panel.
 
 <img src="https://capsule-render.vercel.app/api?type=rect&color=1db954&height=2&width=100%" width="100%" alt="divider" />
 
@@ -203,12 +219,6 @@ Install [Node.js](https://nodejs.org/) and [Git](https://git-scm.com/downloads),
 ## Contributing
 
 Found a bug or have a suggestion? [Open an issue](https://github.com/Kyzenkms/spicetify-jam/issues) — contributions are welcome.
-
-### Invite page hosting
-
-The static invite page lives in `docs/`. Publish it with GitHub Pages using the `main` branch and `/docs` folder. It validates the code and hands off to Spotify; it does not access Spotify accounts or connect to a session from the browser.
-
-Run `npm test` to check invite parsing, direct-route cleanup, and browser handoff. `npm run build` installs the extension and custom-app files locally and rebuilds `dist/spicetify-jam.js`; apply Spicetify to load them. `npm run build-local` only rebuilds the distribution file.
 
 ## License
 
