@@ -1,11 +1,11 @@
 {
   "name": "spicetify-jam",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "private": true,
   "scripts": {
     "build": "spicetify-creator && node install-custom-app.cjs && spicetify-creator --out=dist --minify",
     "build-local": "spicetify-creator --out=dist --minify",
-    "test": "node test-jam-invite.cjs",
+    "test": "node test-jam-invite.cjs && node test-update-check.cjs",
     "watch": "spicetify-creator --watch"
   },
   "license": "MIT",

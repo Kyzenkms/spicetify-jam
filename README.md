@@ -10,7 +10,7 @@
   <br /><br />
 
   <a href="https://github.com/Kyzenkms/spicetify-jam/releases">
-    <img src="https://img.shields.io/badge/version-1.4.1-1db954?style=flat-square&logo=spotify&logoColor=white" alt="Version" />
+    <img src="https://img.shields.io/badge/version-1.4.2-1db954?style=flat-square&logo=spotify&logoColor=white" alt="Version" />
   </a>
   <a href="https://spicetify.app">
     <img src="https://img.shields.io/badge/built%20for-spicetify-1db954?style=flat-square" alt="Spicetify" />
@@ -107,6 +107,10 @@ spicetify apply
 <img src="https://capsule-render.vercel.app/api?type=rect&color=1db954&height=2&width=100%" width="100%" alt="divider" />
 
 ## Updating
+
+**Upgrading to v1.4.2:** rerun the [quick installer](#quick-install-recommended). It installs both the extension and the dedicated Jam app needed by the new invite links.
+
+Older builds check for updates when Spotify starts. Restart Spotify and open the Jam panel to see the update banner. Starting with v1.4.2, update checks also run when Spotify regains focus and every 30 minutes; a notification and banner link to the installation guide when a newer release is available.
 
 From inside the `spicetify-jam` folder:
 

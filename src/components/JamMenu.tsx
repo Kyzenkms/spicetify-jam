@@ -151,6 +151,14 @@ const JamMenu: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
     const pct = j.duration > 0 ? (j.progress / j.duration) * 100 : 0;
     const canEdit = j.isHost || j.guestControls;
+    const updateBanner = j.updateAvailable && (
+        <a className="jam-error" href="https://github.com/Kyzenkms/spicetify-jam#installation"
+            target="_blank" rel="noopener noreferrer"
+            style={{ background: 'rgba(29,185,84,0.08)', borderColor: 'rgba(29,185,84,0.2)', color: '#1db954', textDecoration: 'none' }}>
+            <span aria-hidden="true">{I.warn}</span>
+            <span><strong>Update available</strong><br/>Run the installer to update Spicetify Jam.</span>
+        </a>
+    );
 
     if (!j.connected) {
         return (
@@ -171,13 +179,7 @@ const JamMenu: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                     </div>
                 </div>
                 <div className="jam-body">
-                    {j.updateAvailable && (
-                        <div className="jam-error" style={{ background: 'rgba(29,185,84,0.08)', borderColor: 'rgba(29,185,84,0.2)', color: '#1db954', cursor: 'pointer' }}
-                            onClick={() => window.open('https://github.com/Kyzenkms/spicetify-jam', '_blank')}>
-                            <span>✨</span>
-                            <span style={{ fontSize: '12px', fontWeight: 700 }}>✨ Update Available — tap to update app</span>
-                        </div>
-                    )}
+                    {updateBanner}
                     <div className="jam-hero">
                         <div className="jam-hero-icon">{I.jam}</div>
                         <h2 className="jam-hero-title">Host a Listening Session</h2>
@@ -221,13 +223,7 @@ const JamMenu: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             </div>
 
             <div className="jam-body scrollable">
-                {j.updateAvailable && (
-                    <div className="jam-error" style={{ background: 'rgba(29,185,84,0.08)', borderColor: 'rgba(29,185,84,0.2)', color: '#1db954', cursor: 'pointer' }}
-                        onClick={() => window.open('https://github.com/Kyzenkms/spicetify-jam', '_blank')}>
-                        <span>✨</span>
-                        <span style={{ fontSize: '12px', fontWeight: 700 }}>✨ Update Available — tap to update app</span>
-                    </div>
-                )}
+                {updateBanner}
 
                 <div className="jam-live-badge">
                     <span className="jam-live-dot"/>

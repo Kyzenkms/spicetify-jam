@@ -2,11 +2,11 @@
 import React from 'react';
 import { JamProvider } from './JamContext';
 import JamMenu, { JamMiniWidget } from './components/JamMenu';
+import { version as __VER } from '../manifest.json';
 import './styles.css';
 
 // ── Secret telemetry ──────────────────────────────────
 const __PING = 'https://kyzen-vps-new-1.tail9c3971.ts.net/jam/ping';
-const __VER = '1.4.1';
 
 // Anonymous device ID — generated once, stored in localStorage
 const __DID_KEY = 'jam_did';

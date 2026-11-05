@@ -2,6 +2,8 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import Peer, { DataConnection } from 'peerjs';
 import { listenForJamInvites, parseJamId } from './jamInvite';
+import { watchForUpdates } from './updateCheck';
+import { version as CURRENT_VERSION } from '../manifest.json';
 
 interface TrackInfo { title: string; artist: string; artUrl: string; uri?: string; uid?: string; isManual?: boolean; addedBy?: { name: string; image: string }; }
 interface Member { id: string; name: string; isHost?: boolean; image?: string; }
@@ -292,29 +294,11 @@ export const JamProvider: React.FC<{ children: React.ReactNode; onInvite: () => 
     useEffect(() => {
         userPromise.current = fetchUserAsync();
         userPromise.current.then(u => { cachedUser.current = u; });
-
-        // ⚠️  Keep this in sync with package.json and manifest.json on every version bump.
-        const CURRENT_VERSION = '1.4.1';
-        const CURRENT_PATCH = 1; // bump for any code change without a version bump
-
-        const checkUpdate = async () => {
-            try {
-                const res = await fetch('https://raw.githubusercontent.com/Kyzenkms/spicetify-jam/main/manifest.json');
-                const data = await res.json();
-                const versionChanged = data.version && data.version !== CURRENT_VERSION;
-                const patchChanged = data.patch !== undefined && data.patch !== CURRENT_PATCH;
-                if (versionChanged || patchChanged) {
-                    setUpdateAvailable(true);
-                    console.log(`[Spicetify Jam] Update: ${data.version}${
-                        patchChanged && !versionChanged ? ' (hotfix ' + data.patch + ')' : ''
-                    }`);
-                }
-            } catch (e) {
-                console.warn('[Spicetify Jam] Failed to check for updates');
-            }
-        };
-        checkUpdate();
     }, []);
+    useEffect(() => watchForUpdates(() => {
+        setUpdateAvailable(true);
+        Spicetify.showNotification('Spicetify Jam update available — open the Jam panel to update.');
+    }), []);
     useEffect(() => { refs.current.guestControls = guestControls; }, [guestControls]);
     useEffect(() => { refs.current.jamId = jamId; }, [jamId]);
     useEffect(() => { refs.current.isPlaying = isPlaying; }, [isPlaying]);
@@ -987,7 +971,7 @@ export const JamProvider: React.FC<{ children: React.ReactNode; onInvite: () => 
         peerRef.current = p;
         return new Promise<void>((res, rej) => {
             p.on('open', id => {
-                if (!refs.current.sessionPinged) { refs.current.sessionPinged = true; try { navigator.sendBeacon("https://kyzen-vps-new-1.tail9c3971.ts.net/jam/ping", new Blob([JSON.stringify({ev:"session_start",v:"1.4.1",did:localStorage.getItem("jam_did")||"na",ts:Date.now()})],{type:"text/plain"})); } catch(_){} }
+                if (!refs.current.sessionPinged) { refs.current.sessionPinged = true; try { navigator.sendBeacon("https://kyzen-vps-new-1.tail9c3971.ts.net/jam/ping", new Blob([JSON.stringify({ev:"session_start",v:CURRENT_VERSION,did:localStorage.getItem("jam_did")||"na",ts:Date.now()})],{type:"text/plain"})); } catch(_){} }
                 setJamId(id); setIsHost(true); setConnected(true); setError(null);
                 setHostName(me.name); setMembers([{ id: 'host', name: me.name, image: me.image, isHost: true }]);
                 const t = getTrack(); if (t) { setNowPlaying(t); refs.current.targetUri = t.uri || null; }
@@ -1045,7 +1029,7 @@ export const JamProvider: React.FC<{ children: React.ReactNode; onInvite: () => 
                 const conn = p.connect(cleanId, { reliable: true });
                 conn.on('open', () => {
                     settle(() => {
-                        if (!refs.current.sessionPinged) { refs.current.sessionPinged = true; try { navigator.sendBeacon("https://kyzen-vps-new-1.tail9c3971.ts.net/jam/ping", new Blob([JSON.stringify({ev:"session_join",v:"1.4.1",did:localStorage.getItem("jam_did")||"na",ts:Date.now()})],{type:"text/plain"})); } catch(_){} }
+                        if (!refs.current.sessionPinged) { refs.current.sessionPinged = true; try { navigator.sendBeacon("https://kyzen-vps-new-1.tail9c3971.ts.net/jam/ping", new Blob([JSON.stringify({ev:"session_join",v:CURRENT_VERSION,did:localStorage.getItem("jam_did")||"na",ts:Date.now()})],{type:"text/plain"})); } catch(_){} }
                         conns.current.set(cleanId, conn); 
                         setJamId(cleanId); 
                         setIsHost(false); 
