@@ -1,6 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import Peer, { DataConnection } from 'peerjs';
+import { listenForJamInvites, parseJamId } from './jamInvite';
 
 interface TrackInfo { title: string; artist: string; artUrl: string; uri?: string; uid?: string; isManual?: boolean; addedBy?: { name: string; image: string }; }
 interface Member { id: string; name: string; isHost?: boolean; image?: string; }
@@ -9,7 +10,7 @@ interface JamState {
     nowPlaying: TrackInfo | null; hostName: string; queue: TrackInfo[];
     guestControls: boolean; isPlaying: boolean; progress: number; duration: number; ping: number;
     updateAvailable: boolean;
-    startJam: () => Promise<void>; joinJam: (id: string, name: string) => Promise<void>;
+    startJam: () => Promise<void>; joinJam: (id: string, name?: string) => Promise<void>;
     leaveJam: () => void; addToQueue: (uri: string) => void; removeFromQueue: (uri: string, uid?: string) => void;
     moveInQueue: (from: number, to: number) => void; requestSync: () => void;
     jumpToTrack: (uri: string) => void; seekTo: (ms: number) => void;
@@ -210,7 +211,7 @@ const rewriteNativeQueue = async (tracks: TrackInfo[]) => {
 
 const Ctx = createContext<JamState | undefined>(undefined);
 
-export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const JamProvider: React.FC<{ children: React.ReactNode; onInvite: () => void }> = ({ children, onInvite }) => {
     const [isHost, setIsHost] = useState(false);
     const [jamId, setJamId] = useState('');
     const [members, setMembers] = useState<Member[]>([]);
@@ -294,7 +295,7 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         // ⚠️  Keep this in sync with package.json and manifest.json on every version bump.
         const CURRENT_VERSION = '1.4.1';
-        const CURRENT_PATCH = 0; // bump for any code change without a version bump
+        const CURRENT_PATCH = 1; // bump for any code change without a version bump
 
         const checkUpdate = async () => {
             try {
@@ -1007,12 +1008,16 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     const joinJam = async (id: string, name?: string): Promise<void> => {
-        if (connected) leaveJam();
+        const cleanId = parseJamId(id);
+        if (!cleanId) {
+            setError(id.trim() ? 'Invalid Jam ID or invite link' : 'Please enter a Jam ID');
+            return;
+        }
+        if (refs.current.connected && refs.current.jamId === cleanId) return;
+        if (refs.current.connected) await leaveJam();
+        setError(null);
         const me = await (userPromise.current || fetchUserAsync());
         cachedUser.current = me;
-
-        const cleanId = id.includes('jam=') ? id.split('jam=')[1] : id.trim();
-        if (!cleanId) { setError('Please enter a Jam ID'); return; }
 
         const p = new Peer(PEER_CONFIG); 
         peerRef.current = p;
@@ -1109,6 +1114,8 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             });
         });
     };
+    const joinJamRef = useRef(joinJam);
+    joinJamRef.current = joinJam;
 
     useEffect(() => {
         if (!connected) return;
@@ -1319,10 +1326,10 @@ export const JamProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
     }, []);
 
-    useEffect(() => {
-        const hash = window.location.hash.slice(1);
-        if (hash.startsWith('jam=')) { const id = hash.split('=')[1]; if (id) joinJam(id); }
-    }, []);
+    useEffect(() => listenForJamInvites((Spicetify as any).Platform.History, input => {
+        onInvite();
+        if (input) joinJamRef.current(input).catch(e => console.warn('[Spicetify Jam] Invite failed', e));
+    }), [onInvite]);
 
     return (
         <Ctx.Provider value={{

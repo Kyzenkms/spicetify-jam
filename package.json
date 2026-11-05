@@ -3,8 +3,9 @@
   "version": "1.4.1",
   "private": true,
   "scripts": {
-    "build": "spicetify-creator && spicetify-creator --out=dist --minify",
+    "build": "spicetify-creator && node install-custom-app.cjs && spicetify-creator --out=dist --minify",
     "build-local": "spicetify-creator --out=dist --minify",
+    "test": "node test-jam-invite.cjs",
     "watch": "spicetify-creator --watch"
   },
   "license": "MIT",

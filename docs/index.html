@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Join a listening session with Spicetify Jam. Open your invite directly in Spotify desktop.">
+  <meta name="referrer" content="no-referrer">
+  <meta name="color-scheme" content="light">
+  <title>Join a Jam · Spicetify Jam</title>
+  <style>
+    :root { color-scheme: light; --paper: #f3f7f4; --ink: #15352b; --muted: #526d61; --line: #d6e5dc; --green: #167a42; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100svh; background: var(--paper); color: var(--ink); font: 17px/1.6 "Avenir Next", "Segoe UI", sans-serif; display: grid; place-items: center; padding: 32px 20px; }
+    main { width: 100%; max-width: 500px; }
+    .brand { display: flex; align-items: center; gap: 12px; font-size: 16px; font-weight: 650; }
+    .brand svg { width: 32px; height: 32px; color: var(--green); }
+    h1 { font-size: clamp(38px, 8vw, 56px); font-weight: 600; line-height: 1.06; letter-spacing: -.045em; margin: 56px 0 22px; }
+    p { margin: 0 0 24px; color: var(--muted); max-width: 42ch; }
+    .room { padding: 22px 0; margin: 32px 0 26px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+    label { display: block; color: var(--muted); font-size: 14px; }
+    input { display: block; border: 0; border-radius: 0; background: transparent; color: var(--ink); font: 600 30px/1.5 "Avenir Next", "Segoe UI", sans-serif; letter-spacing: .1em; width: 8ch; padding: 2px 0; }
+    a { color: var(--green); text-underline-offset: 4px; }
+    button, .open { font: inherit; font-weight: 650; border-radius: 8px; cursor: pointer; }
+    button { color: var(--ink); background: transparent; border: 1px solid var(--line); padding: 10px 16px; min-height: 44px; }
+    .open { display: block; text-align: center; text-decoration: none; color: #fff; background: var(--green); padding: 15px 24px; }
+    .open:hover { background: #116234; }
+    button:hover { background: #e6efe8; }
+    :focus-visible { outline: 3px solid var(--green); outline-offset: 4px; }
+    .status { font-size: 14px; margin-top: 16px; min-height: 44px; }
+    footer { margin-top: 38px; padding-top: 22px; border-top: 1px solid var(--line); font-size: 14px; }
+    footer p { margin-bottom: 8px; }
+    [hidden] { display: none !important; }
+    @media (max-width: 380px) { body { padding: 28px 18px; } h1 { margin-top: 38px; } }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="brand">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="2" fill="currentColor"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg>
+      Spicetify Jam
+    </div>
+    <h1 id="heading">Your place in<br>the listening party.</h1>
+    <p id="description">Open Spotify to join your friend's session. Your music, queue, and playback stay together.</p>
+    <div id="invite" hidden>
+      <div class="room">
+        <div><label for="code">Session code</label><input id="code" readonly spellcheck="false" aria-label="Jam session code"></div>
+        <button id="copy" type="button">Copy code</button>
+      </div>
+      <a id="open" class="open">Open Spotify</a>
+    </div>
+    <p id="status" class="status" role="status" aria-live="polite"></p>
+    <noscript><p>Enable JavaScript to open this invite, or paste the full invite URL into the Jam panel in Spotify desktop.</p></noscript>
+    <footer>
+      <p>Requires Spotify desktop and Spicetify Jam.</p>
+      <a href="https://github.com/Kyzenkms/spicetify-jam#installation" rel="noopener noreferrer">Install or update Spicetify Jam</a>
+    </footer>
+  </main>
+  <script>
+    (() => {
+      const params = new URLSearchParams(window.location.search);
+      const code = (params.get('jam') || '').trim().toUpperCase();
+      const status = document.getElementById('status');
+      if (params.getAll('jam').length !== 1 || !/^[A-Z0-9]{6}$/.test(code)) {
+        document.getElementById('heading').textContent = 'This invite is incomplete.';
+        document.getElementById('description').textContent = 'Ask the host for a new invite link, then open it here.';
+        return;
+      }
+      const input = document.getElementById('code');
+      const open = document.getElementById('open');
+      const uri = `spotify:app:spicetify-jam:${code}`;
+      input.value = code;
+      open.href = uri;
+      document.getElementById('invite').hidden = false;
+      document.getElementById('copy').addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(code);
+          status.textContent = 'Code copied. You can also paste it into the Jam panel.';
+        } catch {
+          input.focus();
+          input.select();
+          status.textContent = 'Code selected. Copy it, then paste it into the Jam panel.';
+        }
+      });
+      if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) {
+        open.hidden = true;
+        status.textContent = 'Open this invite on your computer. Spicetify Jam runs in Spotify desktop.';
+        return;
+      }
+      status.textContent = 'Allow your browser to open Spotify. If nothing happens, select Open Spotify.';
+      try { window.location.href = uri; } catch { /* The Open Spotify link provides a user-initiated retry. */ }
+    })();
+  </script>
+</body>
+</html>

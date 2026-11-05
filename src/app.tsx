@@ -42,7 +42,7 @@ async function main() {
   __ping('load');
   __startHeartbeat();
   try {
-  while (!Spicetify?.showNotification || !Spicetify?.Platform) {
+  while (!Spicetify?.showNotification || !(Spicetify as any)?.Platform?.History?.listen) {
     await new Promise(resolve => setTimeout(resolve, 100));
   }
 
@@ -123,7 +123,7 @@ async function main() {
   if ((Spicetify.ReactDOM as any).createRoot) {
     // Re-render sidebar with both panel + portal for mini
     (Spicetify.ReactDOM as any).createRoot(sidebar).render(
-      <JamProvider>
+      <JamProvider onInvite={open}>
         <>
           <JamMenu onClose={close} />
           <MiniPortal container={miniContainer!} onExpand={open} />
@@ -132,7 +132,7 @@ async function main() {
     );
   } else {
     Spicetify.ReactDOM.render(
-      <JamProvider>
+      <JamProvider onInvite={open}>
         <>
           <JamMenu onClose={close} />
           <MiniPortal container={miniContainer!} onExpand={open} />

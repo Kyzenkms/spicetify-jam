@@ -88,6 +88,7 @@ cd spicetify-jam
 npm install
 npm run build
 spicetify config extensions spicetify-jam.js
+spicetify config custom_apps spicetify-jam
 spicetify apply
 ```
 
@@ -99,6 +100,7 @@ cd spicetify-jam
 npm install
 npm run build
 spicetify config extensions spicetify-jam.js
+spicetify config custom_apps spicetify-jam
 spicetify apply
 ```
 
@@ -112,6 +114,7 @@ From inside the `spicetify-jam` folder:
 git pull
 npm install
 npm run build
+spicetify config custom_apps spicetify-jam
 spicetify apply
 ```
 
@@ -131,6 +134,10 @@ spicetify apply
 1. Click the **Jam icon** in the player bar.
 2. Enter the host's **Session ID** or open their join link.
 3. Playback syncs automatically. Resuming after a pause jumps you straight to the live position.
+
+**Invite links** use `https://kyzenkms.github.io/spicetify-jam/?jam=CODE`. The invite page opens `spotify:app:spicetify-jam:CODE`, which goes directly to the installed Jam app. The extension opens the side panel, joins the session, and restores your previous Spotify page. No search query is used.
+
+Both people need Spotify desktop and the latest Spicetify Jam installation, including its custom-app route. Run the installer again when upgrading from an extension-only install. If your browser asks, choose **Open Spotify**. The invite page also has an **Open Spotify** button and a copyable code. On mobile, open the same invite on your computer. Old links containing `#jam=CODE` can still be pasted into the Jam sidebar.
 
 <img src="https://capsule-render.vercel.app/api?type=rect&color=1db954&height=2&width=100%" width="100%" alt="divider" />
 
@@ -154,10 +161,11 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Kyzenkms/spicetify-jam/main/
 
 ```bash
 spicetify config extensions spicetify-jam.js-
+spicetify config custom_apps spicetify-jam-
 spicetify apply
 ```
 
-Then delete the extension file from your Extensions folder.
+Then delete the extension file from your Extensions folder and `spicetify-jam` from your CustomApps folder.
 
 ---
 
@@ -191,6 +199,12 @@ Install [Node.js](https://nodejs.org/) and [Git](https://git-scm.com/downloads),
 ## Contributing
 
 Found a bug or have a suggestion? [Open an issue](https://github.com/Kyzenkms/spicetify-jam/issues) — contributions are welcome.
+
+### Invite page hosting
+
+The static invite page lives in `docs/`. Publish it with GitHub Pages using the `main` branch and `/docs` folder. It validates the code and hands off to Spotify; it does not access Spotify accounts or connect to a session from the browser.
+
+Run `npm test` to check invite parsing, direct-route cleanup, and browser handoff. `npm run build` installs the extension and custom-app files locally and rebuilds `dist/spicetify-jam.js`; apply Spicetify to load them. `npm run build-local` only rebuilds the distribution file.
 
 ## License
 

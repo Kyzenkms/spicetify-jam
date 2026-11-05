@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useJam } from '../JamContext';
+import { jamInviteLink } from '../jamInvite';
 import QRCode from 'qrcode';
 
 const COLORS = [
@@ -132,7 +133,7 @@ const JamMenu: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
     useEffect(() => {
         if (j.jamId) {
-            QRCode.toDataURL(j.jamId, { width: 200, margin: 1, color: { dark: '#000', light: '#fff' } }).then(setQrUrl);
+            QRCode.toDataURL(jamInviteLink(j.jamId), { width: 200, margin: 1, color: { dark: '#000', light: '#fff' } }).then(setQrUrl);
         }
     }, [j.jamId]);
 
@@ -331,7 +332,8 @@ const JamMenu: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                         </div>
                         <div className="jam-share-row">
                             <button className="jam-btn outline flex-1"
-                                onClick={() => copy(`${window.location.origin}${window.location.pathname}#jam=${j.jamId}`, 'Link copied!')}>
+                                title="Open Spotify desktop and join with Spicetify Jam"
+                                onClick={() => copy(jamInviteLink(j.jamId), 'Invite link copied!')}>
                                 {I.link} Copy Link
                             </button>
                             <button className="jam-btn outline flex-1" onClick={() => setShowQr(v => !v)}>

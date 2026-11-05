@@ -150,6 +150,7 @@ src/Models/
 src/utils/
 src/client.mjs
 index.js
+!custom-app/index.js
 Assets/Global/
 Assets/Locales/
 Assets/Themes/

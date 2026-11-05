@@ -2,6 +2,7 @@
 set -e
 
 EXTENSION_NAME="spicetify-jam.js"
+CUSTOM_APP_NAME="spicetify-jam"
 
 echo "🗑 Uninstalling Spicetify Jam..."
 
@@ -14,6 +15,7 @@ fi
 echo "⚙️ Removing from Spicetify config..."
 spicetify config extensions "${EXTENSION_NAME}+-" 2>/dev/null || true
 spicetify config extensions "${EXTENSION_NAME}-" 2>/dev/null || true
+spicetify config custom_apps "${CUSTOM_APP_NAME}-"
 
 # Delete the extension file
 SPICETIFY_DATA_DIR="$(spicetify path userdata 2>/dev/null || true)"
@@ -26,6 +28,7 @@ if [ -f "$EXTENSION_PATH" ]; then
   echo "📁 Deleting extension file..."
   rm -f "$EXTENSION_PATH"
 fi
+rm -rf "${SPICETIFY_DATA_DIR}/CustomApps/${CUSTOM_APP_NAME}"
 
 # Apply changes
 spicetify apply

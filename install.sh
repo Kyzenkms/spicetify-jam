@@ -3,6 +3,8 @@ set -e
 
 EXTENSION_NAME="spicetify-jam.js"
 EXTENSION_URL="https://raw.githubusercontent.com/Kyzenkms/spicetify-jam/main/dist/${EXTENSION_NAME}"
+CUSTOM_APP_NAME="spicetify-jam"
+CUSTOM_APP_URL="https://raw.githubusercontent.com/Kyzenkms/spicetify-jam/main/custom-app"
 
 echo "🎵 Installing Spicetify Jam..."
 
@@ -27,9 +29,10 @@ fi
 
 EXTENSIONS_DIR="${SPICETIFY_DATA_DIR}/Extensions"
 EXTENSION_PATH="${EXTENSIONS_DIR}/${EXTENSION_NAME}"
+CUSTOM_APP_DIR="${SPICETIFY_DATA_DIR}/CustomApps/${CUSTOM_APP_NAME}"
 
 echo "📁 Preparing Extensions folder..."
-mkdir -p "$EXTENSIONS_DIR"
+mkdir -p "$EXTENSIONS_DIR" "$CUSTOM_APP_DIR"
 
 echo "📥 Downloading latest build..."
 if command -v curl &>/dev/null; then
@@ -46,6 +49,19 @@ if [ ! -s "$EXTENSION_PATH" ]; then
   exit 1
 fi
 
+echo "🔗 Installing direct Jam links..."
+for file in index.js manifest.json; do
+  if command -v curl &>/dev/null; then
+    curl -fsSL "$CUSTOM_APP_URL/$file" -o "$CUSTOM_APP_DIR/$file"
+  else
+    wget -q "$CUSTOM_APP_URL/$file" -O "$CUSTOM_APP_DIR/$file"
+  fi
+  if [ ! -s "$CUSTOM_APP_DIR/$file" ]; then
+    echo "❌ Downloaded custom app file is empty: $CUSTOM_APP_DIR/$file"
+    exit 1
+  fi
+done
+
 echo "⚙️ Configuring Spicetify..."
 CURRENT_EXTENSIONS="$(spicetify config extensions 2>/dev/null || true)"
 
@@ -58,6 +74,7 @@ fi
 if ! printf '%s\n' "$CURRENT_EXTENSIONS" | tr '|' '\n' | grep -Fxq "$EXTENSION_NAME"; then
   spicetify config extensions "$EXTENSION_NAME"
 fi
+spicetify config custom_apps "$CUSTOM_APP_NAME"
 
 echo "🚀 Applying changes to Spotify..."
 if ! spicetify apply; then

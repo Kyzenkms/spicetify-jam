@@ -2,8 +2,10 @@ $ErrorActionPreference = "Stop"
 
 $ExtensionName = "spicetify-jam.js"
 $ExtensionUrl = "https://raw.githubusercontent.com/Kyzenkms/spicetify-jam/main/dist/$ExtensionName"
+$CustomAppName = "spicetify-jam"
+$CustomAppUrl = "https://raw.githubusercontent.com/Kyzenkms/spicetify-jam/main/custom-app"
 
-Write-Host "🎵 Installing Spicetify Jam..." -ForegroundColor Green
+Write-Host "Installing Spicetify Jam..." -ForegroundColor Green
 
 if (-not (Get-Command spicetify -ErrorAction SilentlyContinue)) {
     $defaultPaths = @(
@@ -20,7 +22,7 @@ if (-not (Get-Command spicetify -ErrorAction SilentlyContinue)) {
 }
 
 if (-not (Get-Command spicetify -ErrorAction SilentlyContinue)) {
-    Write-Host "❌ spicetify not found. Install it first: https://spicetify.app/" -ForegroundColor Red
+    Write-Host "spicetify not found. Install it first: https://spicetify.app/" -ForegroundColor Red
     exit 1
 }
 
@@ -40,18 +42,29 @@ if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($UserDataPath)) {
 
 $ExtensionsDir = Join-Path $UserDataPath.Trim() "Extensions"
 $ExtensionPath = Join-Path $ExtensionsDir $ExtensionName
+$CustomAppDir = Join-Path $UserDataPath.Trim() "CustomApps\$CustomAppName"
 
-Write-Host "📁 Preparing Extensions folder..." -ForegroundColor Yellow
+Write-Host "Preparing extension and custom app folders..." -ForegroundColor Yellow
 New-Item -ItemType Directory -Force -Path $ExtensionsDir | Out-Null
+New-Item -ItemType Directory -Force -Path $CustomAppDir | Out-Null
 
-Write-Host "📥 Downloading latest build..." -ForegroundColor Yellow
+Write-Host "Downloading latest build..." -ForegroundColor Yellow
 Invoke-WebRequest -Uri $ExtensionUrl -UseBasicParsing -OutFile $ExtensionPath
 
 if (-not (Test-Path -LiteralPath $ExtensionPath) -or (Get-Item -LiteralPath $ExtensionPath).Length -eq 0) {
     throw "Downloaded extension is empty: $ExtensionPath"
 }
 
-Write-Host "⚙️ Configuring Spicetify..." -ForegroundColor Yellow
+Write-Host "Installing direct Jam links..." -ForegroundColor Yellow
+foreach ($File in @("index.js", "manifest.json")) {
+    $Destination = Join-Path $CustomAppDir $File
+    Invoke-WebRequest -Uri "$CustomAppUrl/$File" -UseBasicParsing -OutFile $Destination
+    if ((Get-Item -LiteralPath $Destination).Length -eq 0) {
+        throw "Downloaded custom app file is empty: $Destination"
+    }
+}
+
+Write-Host "Configuring Spicetify..." -ForegroundColor Yellow
 $ConfigOutput = & spicetify config extensions 2>$null
 if ($LASTEXITCODE -ne 0) {
     throw "Failed to read Spicetify extensions config."
@@ -67,13 +80,14 @@ if ($ConfiguredExtensions -contains "$ExtensionName+") {
 }
 
 if ($ConfiguredExtensions -notcontains $ExtensionName) {
-    & spicetify config extensions $ExtensionName
+    Invoke-Spicetify -Arguments @("config", "extensions", $ExtensionName)
 }
+Invoke-Spicetify -Arguments @("config", "custom_apps", $CustomAppName)
 
-Write-Host "🚀 Applying changes to Spotify..." -ForegroundColor Yellow
+Write-Host "Applying changes to Spotify..." -ForegroundColor Yellow
 & spicetify apply
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "⚠️ spicetify apply failed, trying backup apply..." -ForegroundColor Yellow
+    Write-Host "spicetify apply failed, trying backup apply..." -ForegroundColor Yellow
     & spicetify backup apply
     if ($LASTEXITCODE -ne 0) {
         throw "spicetify apply and backup apply failed."
@@ -81,5 +95,5 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host ""
-Write-Host "✅ Done! Restart Spotify to use Spicetify Jam." -ForegroundColor Green
-Write-Host "   Look for the Jam icon ((•)) in the bottom-right player bar."
+Write-Host "Done! Restart Spotify to use Spicetify Jam." -ForegroundColor Green
+Write-Host "   Look for Spicetify Jam in the player bar or sidebar."
